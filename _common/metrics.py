@@ -76,7 +76,7 @@ data_suffix = ""
 save_plot_images = True
 
 # Option to show plot images. Useful if it is desired to not show plots while running scripts
-show_plot_images = True
+show_plot_images = False
 
 # Option to show elapsed times in the metrics plots
 show_elapsed_times = True
@@ -1371,7 +1371,7 @@ def plot_metrics (suptitle="Circuit Width (Number of Qubits)", transform_qubit_g
         
         # save plot image to file
         if save_plot_images:
-            save_plot_image(plt, f"{appname}-vplot", backend_id) 
+            save_plot_image(plt, f"{appname}-vplot" + suffix, backend_id) 
         
         #display plot
         if show_plot_images:

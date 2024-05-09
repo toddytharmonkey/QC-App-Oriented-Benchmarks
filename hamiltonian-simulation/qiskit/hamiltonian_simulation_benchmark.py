@@ -338,7 +338,7 @@ def run(min_qubits=2, max_qubits=8, max_circuits=3, skip_qubits=1, num_shots=100
         use_XX_YY_ZZ_gates = False,
         backend_id='qasm_simulator', provider_backend=None,
         hub="ibm-q", group="open", project="main", exec_options=None,
-        context=None, method=2):
+        context=None, method=2,suffix=""):
 
     print(f"{benchmark_name} Benchmark Program - Qiskit")
     
@@ -437,9 +437,9 @@ def run(min_qubits=2, max_qubits=8, max_circuits=3, skip_qubits=1, num_shots=100
     else:
         print("\nXXYYZZ_opt =")
         print(XXYYZZ_)
-        
+       
     # Plot metrics for all circuit sizes
-    metrics.plot_metrics(f"Benchmark Results - {benchmark_name} - Qiskit")
+    metrics.plot_metrics(f"Benchmark Results - {benchmark_name} - Qiskit",suffix=suffix)
 
 
 # if main, execute method
@@ -474,4 +474,4 @@ if __name__ == '__main__':
                     exec_options={ "optimization_level": 0, "layout_method":'sabre', "routing_method":'sabre', "transformer": high_optimisation }
                 else:
                     exec_options= None
-                run(min_qubits=2, max_qubits=13, method=method, exec_options=exec_options)
+                run(min_qubits=2, max_qubits=13, method=method, exec_options=exec_options,suffix=f"{method}_{f}_{use_pytket}")
