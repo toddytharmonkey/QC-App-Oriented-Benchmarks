@@ -316,9 +316,11 @@ def analyze_and_print_result(qc, result, num_qubits, type, num_shots, method):
     # it is stored in the json file we import at the top of the code
 
     if method == 1:
+        # ideal Heisenburg Ham Sim. Circuit results
         correct_dist = precalculated_data[f"Qubits - {num_qubits}"]
     else:
-        correct_dist = precalculated_data[f"Qubits2 - {num_qubits}"]
+        # exactly calculated TFIM results 
+        correct_dist = precalculated_data[f"Qubits3 - {num_qubits}"]
 
     print(counts)
     print(correct_dist)
@@ -457,11 +459,9 @@ if __name__ == '__main__':
         noise_model.add_all_qubit_quantum_error(depolarizing_err, ['cx'])  # Apply to CNOT gates
         return noise_model 
 
-    fidelities = [.95,.995]
-
-    for method in (1,2): 
-        for f in fidelities:
-            for use_pytket in [False, True]:
+    for method in [1]: 
+        for f in [.95]:
+            for use_pytket in [False]:
 
                 noise = create_noise_model(f)
                 ex.set_noise_model(noise)
@@ -469,9 +469,9 @@ if __name__ == '__main__':
                 print(f"Starting to run benchmarks with {method}, use_pytket: {use_pytket}, 2Q error rate set to {f}")
             
                 # not really sure how tket optimiser works, so just use default settings 
-                high_optimisation = tket_optimiser.tket_transformer_generator(cx_fidelity=f) 
+                high_optimisation = tket_optimiser.tket_transformer_generator(cx_fidelity=1) 
                 if use_pytket:
                     exec_options={ "optimization_level": 0, "layout_method":'sabre', "routing_method":'sabre', "transformer": high_optimisation }
                 else:
                     exec_options= None
-                run(min_qubits=2, max_qubits=13, method=method, exec_options=exec_options,suffix=f"{method}_{f}_{use_pytket}")
+                run(min_qubits=2, max_qubits=12, method=method, exec_options=exec_options,suffix=f"{method}_{f}_{use_pytket}")
