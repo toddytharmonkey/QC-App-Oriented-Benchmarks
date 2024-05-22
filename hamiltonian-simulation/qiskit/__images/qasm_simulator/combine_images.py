@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     combined_image_suffix = ""
 
-    for method in [1,2]:
+    for method in [1]:
 
         images = []
 

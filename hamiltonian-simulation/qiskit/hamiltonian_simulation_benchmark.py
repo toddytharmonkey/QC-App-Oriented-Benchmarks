@@ -13,6 +13,7 @@ from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.quantum_info import SparsePauliOp
 from qiskit.primitives import Estimator
 from qiskit.quantum_info import Statevector
+from qiskit_algorithms import TimeEvolutionProblem, SciPyRealEvolver
 
 sys.path[1:1] = ["_common", "_common/qiskit"]
 sys.path[1:1] = ["../../_common", "../../_common/qiskit", "../../_common/transformers"]
@@ -47,58 +48,64 @@ precalculated_data = json.loads(data)
 
 ############### Circuit Definition
 
+def initial_state(n_spins, method): 
 
-def Hamiltonian_Simulation_Exact(n_spins):
-    num_shots = 100000
+    if method == 1: 
 
-    qr = QuantumRegister(n_spins); cr = ClassicalRegister(n_spins); qc = QuantumCircuit(qr, cr, name="main")
-    g=0.2 # strength of tranverse field
+        qc = QuantumCircuit(n_spins)
 
-    # state with initial state of GHZ state: 1/sqrt(2) ( |00...> + |11...> )
-    qc.h(qr[0])
-    for k in range(1, n_spins):
-        qc.cx(qr[k-1], qr[k])
-    
-    psi = Statevector(qc)
+        for k in range(0, n_spins, 2):
+            qc.x([k])
 
-    #qr2 = QuantumRegister(n_spins); cr2 = ClassicalRegister(n_spins); qc2 = QuantumCircuit(qr2, cr2, name="main")
+    else:
+        raise NotImplementedError
 
-    ##calculate TFIM
+    return qc 
 
-    pauli_list = []
-    for i in range(n_spins-2):
-        curr_str = "I"*(i)+"ZZ"+"I"*(n_spins-(i+2))
-        pauli_list.append((curr_str, 1))
+def construct_heisenberg_hamiltonian(n_spins, w, h_x, h_z):
+    # Initialize lists to hold Pauli strings and coefficients
+    pauli_strings = []
+    coefficients = []
 
+    # Disorder terms
+    for i in range(n_spins):
+        x_term = 'I' * i + 'X' + 'I' * (n_spins - i - 1)
+        z_term = 'I' * i + 'Z' + 'I' * (n_spins - i - 1)
+        pauli_strings.append(x_term)
+        coefficients.append(2 * w * h_x[i])
+        pauli_strings.append(z_term)
+        coefficients.append(2 * w * h_z[i])
 
-    x_str = "X"*n_spins
-    pauli_list.append((x_str, g))
+    # Interaction terms
+    for i in range(n_spins):
+        for j in range(i + 1, n_spins):
+            xx_term = 'I' * i + 'X' + 'I' * (j - i - 1) + 'X' + 'I' * (n_spins - j - 1)
+            yy_term = 'I' * i + 'Y' + 'I' * (j - i - 1) + 'Y' + 'I' * (n_spins - j - 1)
+            zz_term = 'I' * i + 'Z' + 'I' * (j - i - 1) + 'Z' + 'I' * (n_spins - j - 1)
+            pauli_strings.append(xx_term)
+            coefficients.append(1.0)
+            pauli_strings.append(yy_term)
+            coefficients.append(1.0)
+            pauli_strings.append(zz_term)
+            coefficients.append(1.0)
 
-    pauli_list= SparsePauliOp.from_list(pauli_list)
+    # Construct SparsePauliOp
+    sparse_pauli_op = SparsePauliOp.from_list(zip(pauli_strings, coefficients))
+    return sparse_pauli_op
 
-    #psi.expectation_value(pauli_list)
+def Hamiltonian_Simulation_Exact(n_spins, t, method=1):
 
-    #job = estimator.run([qc], pauli_list, shots = num_shots)
-    #x_values = job.result().values
-    # print(x_values)
-    # print(np.mean(x_values))
-    print("pauli list", pauli_list)
-    psi.evolve(pauli_list)
+    w = precalculated_data['w']  # strength of disorder
+    h_x = precalculated_data['h_x'][:n_spins] # precalculated random numbers between [-1, 1]
+    h_z = precalculated_data['h_z'][:n_spins]
 
-    qr3 = QuantumRegister(n_spins); cr3 = ClassicalRegister(n_spins); qc3 = QuantumCircuit(qr3, cr3, name="main")
-    for k in reversed(range(1, n_spins)):
-        qc3.cx(qr3[k-1], qr3[k])
-    qc3.h(qr3[0])
+    hamiltonian = construct_heisenberg_hamiltonian(n_spins, w, h_x, h_z)
 
-    psi.evolve(qc3)
+    time_problem = TimeEvolutionProblem(hamiltonian, t, initial_state = initial_state(n_spins, method=1))
 
-    counts = psi.sample_counts(shots = num_shots)
- 
+    result = SciPyRealEvolver(num_timesteps=1).evolve(time_problem)
 
-    # x_str = "X"*n_spins
-    # x_list = SparsePauliOp.from_list([(x_str, 1)])
-    # print(psi.expectation_value(x_list))
-    
+    return result.evolved_state.probabilities_dict()
     
 
 def HamiltonianSimulation(n_spins, K, t, method = 1, measure_x = False):
@@ -204,22 +211,13 @@ def HamiltonianSimulation(n_spins, K, t, method = 1, measure_x = False):
         #     for j in range(2):
         #         for i in range(j%2, n_spins - 1, 2):
         #             qc.append(-zz_gate(tau).to_instruction(), [qr[i], qr[(i + 1) % n_spins]])
+        #
 
+    # measure all qubits 
 
-
-    if measure_x:
-        x_str = "X"*n_spins
-        x_list = SparsePauliOp.from_list([(x_str, 1)])
-        psi = Statevector(qc)
-        print(psi.expectation_value(x_list))
-        job = estimator.run([qc], [x_list])
-        x_values = job.result().values
-        print(x_values)
-        print(np.mean(x_values))
-
-    # measure all the qubits used in the circuit
     for i_qubit in range(n_spins):
         qc.measure(qr[i_qubit], cr[i_qubit])
+
 
     # save smaller circuit example for display
     global QC_    
@@ -302,7 +300,8 @@ def xxyyzz_opt_gate(tau):
 
 
 ############### Result Data Analysis
-
+from qiskit.visualization import plot_distribution
+import matplotlib.pyplot as plt 
 # Analyze and print measured results
 # Compute the quality of the result based on operator expectation for each state
 def analyze_and_print_result(qc, result, num_qubits, type, num_shots, method):
@@ -317,13 +316,26 @@ def analyze_and_print_result(qc, result, num_qubits, type, num_shots, method):
 
     if method == 1:
         # ideal Heisenburg Ham Sim. Circuit results
-        correct_dist = precalculated_data[f"Qubits - {num_qubits}"]
+        correct_dist = precalculated_data[f"Qubits2 - {num_qubits}"]
     else:
-        # exactly calculated TFIM results 
+        # ideal TFIM Ham Sim. Circuit results 
         correct_dist = precalculated_data[f"Qubits3 - {num_qubits}"]
 
-    print(counts)
-    print(correct_dist)
+    # print("counts")
+    # print(counts)
+    # print("correct_dist")
+    # print(correct_dist)
+    # print()
+    #
+    # normalized_counts = {}
+    #
+    # for key in counts.keys():
+    #     prob = counts[key] / num_shots
+    #     normalized_counts[key] = prob
+    #
+    # plot_distribution([normalized_counts, correct_dist], legend= ["counts", "expected counts"])
+    # plt.show()
+    
 
     if verbose: print(f"Correct dist: {correct_dist}")
 
@@ -403,6 +415,10 @@ def run(min_qubits=2, max_qubits=8, max_circuits=3, skip_qubits=1, num_shots=100
         t = precalculated_data['t']  # time of simulation
         #######################################################################
 
+        print("internal w",w)
+        print("internal k", k)
+        print("internal t", t)
+
         # loop over only 1 circuit
         for circuit_id in range(num_circuits):
         
@@ -449,6 +465,9 @@ if __name__ == '__main__':
 
     # Go through 2Q fidelities .95 and .995, through method 1 (Heisenburg) & method 2 (TFIM)
     # and go through using pytket (or compiling) in the loop below. 
+    #
+    min_qubits = 2
+    max_qubits = 12
 
     from qiskit_aer.noise import NoiseModel, depolarizing_error
 
@@ -460,18 +479,17 @@ if __name__ == '__main__':
         return noise_model 
 
     for method in [1]: 
-        for f in [.95]:
-            for use_pytket in [False]:
+        for f in [.95,.995]:
+            for use_pytket in [False, True]:
 
                 noise = create_noise_model(f)
-                ex.set_noise_model(noise)
 
                 print(f"Starting to run benchmarks with {method}, use_pytket: {use_pytket}, 2Q error rate set to {f}")
             
                 # not really sure how tket optimiser works, so just use default settings 
-                high_optimisation = tket_optimiser.tket_transformer_generator(cx_fidelity=1) 
+                high_optimisation = tket_optimiser.tket_transformer_generator(cx_fidelity=f) 
                 if use_pytket:
-                    exec_options={ "optimization_level": 0, "layout_method":'sabre', "routing_method":'sabre', "transformer": high_optimisation }
+                    exec_options={ "optimization_level": 0, "layout_method":'sabre', "routing_method":'sabre', "transformer": high_optimisation, "noise_model": noise  }
                 else:
-                    exec_options= None
-                run(min_qubits=2, max_qubits=12, method=method, exec_options=exec_options,suffix=f"{method}_{f}_{use_pytket}")
+                    exec_options= {"noise_model" : noise}
+                run(min_qubits=min_qubits, max_qubits=max_qubits, method=method, exec_options=exec_options,suffix=f"{method}_{f}_{use_pytket}")

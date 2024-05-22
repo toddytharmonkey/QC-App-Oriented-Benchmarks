@@ -46,10 +46,10 @@ if __name__ == "__main__":
 
 
     for method in [1,2]: 
-        for f in [.99]:
+        for f in [.995]:
             for n_spins in [8]:
-                for k in [1,2,3]:
-                    for t in [.01, .1, 1]:
+                for k in [5]:
+                    for t in [1.151243815198]:
 
                         high_optimisation = tket_optimiser.tket_transformer_generator(cx_fidelity=f, remove_barriers=False) 
 
@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
                         from qiskit import transpile
 
-                        w = precalculated_data['w']  # strength of disorder
+                        w = 1 # strength of disorder
                         h_x = precalculated_data['h_x'][:n_spins] # precalculated random numbers between [-1, 1]
                         h_z = precalculated_data['h_z'][:n_spins]
 
