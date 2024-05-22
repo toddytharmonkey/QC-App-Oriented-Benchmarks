@@ -114,7 +114,7 @@ QV = 0
 AQ = 12
 aq_cutoff = 0.368   # below this circuits not considered successful
 
-aq_mode = 0         # 0 - use default plot behavior, 1 - use AQ modified plots
+aq_mode = 1         # 0 - use default plot behavior, 1 - use AQ modified plots
 
 # average transpile factor between base QV depth and our depth based on results from QV notebook
 QV_transpile_factor = 12.7     
