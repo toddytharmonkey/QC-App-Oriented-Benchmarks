@@ -15,38 +15,44 @@ import metrics as metrics
 import tket_optimiser as tket_optimiser
 
 
-from PIL import Image, ImageDraw, ImageFont
 
 from qiskit_aer.noise import NoiseModel, depolarizing_error
 
 def create_noise_model(fidelity):
-    p = 15/4 * (1 - fidelity)
-    noise_model = NoiseModel()
-    depolarizing_err = depolarizing_error(p, 2)  # 2-qubit depolarizing error
-    noise_model.add_all_qubit_quantum_error(depolarizing_err, ['cx'])  # Apply to CNOT gates
-    return noise_model 
+
+    if fidelity == 1:
+        return None
+    else: 
+        p = 15/4 * (1 - fidelity)
+        noise_model = NoiseModel()
+        depolarizing_err = depolarizing_error(p, 2)  # 2-qubit depolarizing error
+        noise_model.add_all_qubit_quantum_error(depolarizing_err, ['cx'])  # Apply to CNOT gates
+        return noise_model 
+
+from PIL import Image, ImageDraw, ImageFont
 
 def save_and_combine_images(images, output_filename, method):
     """
-    Given four images that correspond to the four possible configurations of using the pytket optimiser or not, and o
+    Given four images that correspond to the four possible configurations of using the pytket optimiser or not,
+    this function combines them into a 2x2 grid with appropriate titles and labels.
     """
 
-    # Assuming all images are the same size
-    width, height = images[0].size
+    if len(images) != 4:
+        raise ValueError(f"Input images list isn't of length 4, it is instead length {len(images)}")
+
+    # Determine the maximum width and height of the input images
+    max_width = max(image.size[0] for image in images)
+    max_height = max(image.size[1] for image in images)
 
     # Create a new image to accommodate 2x2 grid with extra space for text
-    combined_image = Image.new(
-        "RGB", (2 * width, 2 * height + 100), "white"
-    )  # Adjusted space for labels and title
+    combined_image = Image.new("RGB", (2 * max_width, 2 * max_height + 150), "white")  # Adjusted space for labels and title
 
     # Create drawing object
     draw = ImageDraw.Draw(combined_image)
 
     # Use a larger font size; download a .ttf file or use available system fonts
     try:
-        font = ImageFont.truetype(
-            "arial.ttf", size=24
-        )  # Specify path to a TTF font file and size
+        font = ImageFont.truetype("arial.ttf", size=24)  # Specify path to a TTF font file and size
     except IOError:
         font = ImageFont.load_default()
 
@@ -55,24 +61,20 @@ def save_and_combine_images(images, output_filename, method):
     y_label = "2Q gate fidelity"
     x_labels = ["No compilation", "Pytket gate compilation"]
 
-    # Calculate center for the title and add it
-
     # Paste the images and add axis labels
     for index, image in enumerate(images):
-        x = (index % 2) * width
-        y = (index // 2) * height + 50  # Adjust for title space
+        x = (index % 2) * max_width
+        y = (index // 2) * max_height + 50  # Adjust for title space
 
-        # Paste image
-        combined_image.paste(image, (x, y))
+        # Center the image in the cell
+        img_x = x + (max_width - image.size[0]) // 2
+        img_y = y + (max_height - image.size[1]) // 2
+        combined_image.paste(image, (img_x, img_y))
 
-        # Center x-axis labels below each image
 
-    # Y-axis labels (if more precision needed, adjust the positions)
 
     # Save the new image
     combined_image.save(output_filename)
-
-
 def set_precalculated_data(w, k, t, min_qubits, max_qubits):
 
     """
@@ -102,14 +104,13 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
 
     num_shots = 100000
 
-    for n_spins in range(min_qubits, max_qubits):
+    for n_spins in range(min_qubits, max_qubits+1):
 
         print(f"Now running n_spins {n_spins}")
 
         qc = ham.HamiltonianSimulation(n_spins, k, t, method=1)
 
         dist2 = ham.Hamiltonian_Simulation_Exact(n_spins, t, method=1)
-        print('dist2', dist2)
 
         qc3 = ham.HamiltonianSimulation(n_spins, k, t, method=2)
 
@@ -146,7 +147,7 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
 
                 precalculated_data[f"Qubits3 - {n_spins}"] = dist3
 
-                ham.precalculated_data = precalculated_data
+        ham.precalculated_data = precalculated_data
 
 
 if __name__ == "__main__":
@@ -159,26 +160,27 @@ if __name__ == "__main__":
 
     # min and max qubits. on my laptop, 12 is the maximum amount 
     min_qubits = 2
-    max_qubits = 10
+    max_qubits = 4
 
     # selected trotter steps to go through, can be any length 
     k_range = [5]
 
     # selected times to go through, can be of any length 
-    # a special note: do not choose t=1. that happens to produce gates with 0 rotation that are compiled out!
-    time_range = np.random.uniform(1,2,1)
+    # a special note: do not choose t=1 when k=3.. that happens to produce gates with 0 rotation that are compiled out!
+    # time_range = np.random.uniform(1,2,1)
+    time_range = [.1]
 
     # methods to go through, can be list of length 1 or 2 
     methods = [1]
 
     # 2Q fidelity with depolarization model, should be length 2 for script to work. default, from Charlie Baldwin's graph, is .95 and .995. 
-    f_range = [.95, .995]
+    f_range = [.95, 1]
 
     for k in k_range:
         for t in time_range:
 
             # overwrite the precalculated_data inside of hamiltonian_simulation_benchmark for the settings desired 
-            # does this in a global manner 
+            # does this in a global manner by editing the hamiltonian_simulation_benchmark module
             set_precalculated_data(w=1, k=k, t=t, min_qubits = min_qubits, max_qubits = max_qubits)
 
             for method in methods:
@@ -215,8 +217,18 @@ if __name__ == "__main__":
                             suffix=suffix,
                         )
 
+                    image_suffix = f"{k}_{t}_{method}_{f}".replace(".","")
+                    # construct and save example transpiled (pre-compiled) circuit 
+                    qc = ham.HamiltonianSimulation((min_qubits + max_qubits)//2, K=k, t=t, method=method, measure_x= False) 
+                    transpile(qc,ex.backend, optimization_level=0).draw("mpl", filename="qc_" + image_suffix + "_False")
 
-                images = []
+                    # construct and save example compiled (pytket) circuit 
+                    compiled_qc = high_optimisation(qc, backend=ex.backend)
+                    compiled_qc.draw("mpl", filename="qc_" + image_suffix + "_True")
+
+                        # the code in this for loop will generate a bunch of images for all the different specified methods, fidelities, and use of pytket. 
+
+                benchmark_result_images = []
 
                 for f in f_range:
                     for use_pytket in [False, True]: 
@@ -225,6 +237,19 @@ if __name__ == "__main__":
 
                         file_name = "__images/qasm_simulator/Hamiltonian-Simulation-vplot" + suffix + ".jpg" 
 
-                        images.append(Image.open(file_name))
+                        benchmark_result_images.append(Image.open(file_name))
 
-                save_and_combine_images(images, f"combined_vplots_method_{method}_{k}_{t}" + ".jpg", method)
+                save_and_combine_images(benchmark_result_images, f"combined_vplots_method_{method}_{k}_{t}" + ".jpg", method)
+
+                circuit_images = []
+
+                for f in f_range:
+                    for use_pytket in [False, True]: 
+
+                        suffix = f"{k}_{t}_{method}_{f}_{use_pytket}".replace(".","")
+
+                        file_name = "qc_" + suffix + ".png" 
+
+                        circuit_images.append(Image.open(file_name))
+
+                save_and_combine_images(circuit_images, f"combined_circuit_plot_{method}_{k}_{t}" + ".jpg", method)
