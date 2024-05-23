@@ -50,7 +50,7 @@ precalculated_data = json.loads(data)
 
 def initial_state(n_spins, method): 
 
-    if method == 1: 
+    if method == 1 or method == 3: 
 
         qc = QuantumCircuit(n_spins)
 
@@ -94,6 +94,9 @@ def construct_heisenberg_hamiltonian(n_spins, w, h_x, h_z):
     return sparse_pauli_op
 
 def Hamiltonian_Simulation_Exact(n_spins, t, method=1):
+    """
+    Returns the distribution after simulating our hamiltonian simulation circuits using a classically calculated (using SciPy) matrix evolution
+    """
 
     w = precalculated_data['w']  # strength of disorder
     h_x = precalculated_data['h_x'][:n_spins] # precalculated random numbers between [-1, 1]
@@ -101,7 +104,7 @@ def Hamiltonian_Simulation_Exact(n_spins, t, method=1):
 
     hamiltonian = construct_heisenberg_hamiltonian(n_spins, w, h_x, h_z)
 
-    time_problem = TimeEvolutionProblem(hamiltonian, t, initial_state = initial_state(n_spins, method=1))
+    time_problem = TimeEvolutionProblem(hamiltonian, t, initial_state = initial_state(n_spins, method))
 
     result = SciPyRealEvolver(num_timesteps=1).evolve(time_problem)
 
@@ -130,7 +133,7 @@ def HamiltonianSimulation(n_spins, K, t, method = 1, measure_x = False):
     h_z = precalculated_data['h_z'][:n_spins]
 
 
-    if method==1:
+    if method==1 or method==3:
         # start with initial state of 1010101...
         for k in range(0, n_spins, 2):
             qc.x(qr[k])
@@ -316,10 +319,13 @@ def analyze_and_print_result(qc, result, num_qubits, type, num_shots, method):
 
     if method == 1:
         # ideal Heisenburg Ham Sim. Circuit results
-        correct_dist = precalculated_data[f"Qubits2 - {num_qubits}"]
-    else:
+        correct_dist = precalculated_data[f"Qubits - {num_qubits}"]
+    elif method ==2:
         # ideal TFIM Ham Sim. Circuit results 
         correct_dist = precalculated_data[f"Qubits3 - {num_qubits}"]
+    else: 
+        # Classically calculated Heisenburg Ham Sim. Results 
+        correct_dist = precalculated_data[f"Qubits2- {num_qubits}"]
 
     # print("counts")
     # print(counts)
@@ -352,7 +358,7 @@ def run(min_qubits=2, max_qubits=8, max_circuits=3, skip_qubits=1, num_shots=100
         use_XX_YY_ZZ_gates = False,
         backend_id='qasm_simulator', provider_backend=None,
         hub="ibm-q", group="open", project="main", exec_options=None,
-        context=None, method=2,suffix=""):
+        context=None, method=1,suffix=""):
 
     print(f"{benchmark_name} Benchmark Program - Qiskit")
     
@@ -415,9 +421,6 @@ def run(min_qubits=2, max_qubits=8, max_circuits=3, skip_qubits=1, num_shots=100
         t = precalculated_data['t']  # time of simulation
         #######################################################################
 
-        print("internal w",w)
-        print("internal k", k)
-        print("internal t", t)
 
         # loop over only 1 circuit
         for circuit_id in range(num_circuits):
@@ -463,33 +466,4 @@ def run(min_qubits=2, max_qubits=8, max_circuits=3, skip_qubits=1, num_shots=100
 # if main, execute method
 if __name__ == '__main__':
 
-    # Go through 2Q fidelities .95 and .995, through method 1 (Heisenburg) & method 2 (TFIM)
-    # and go through using pytket (or compiling) in the loop below. 
-    #
-    min_qubits = 2
-    max_qubits = 12
-
-    from qiskit_aer.noise import NoiseModel, depolarizing_error
-
-    def create_noise_model(fidelity):
-        p = 15/4 * (1 - fidelity)
-        noise_model = NoiseModel()
-        depolarizing_err = depolarizing_error(p, 2)  # 2-qubit depolarizing error
-        noise_model.add_all_qubit_quantum_error(depolarizing_err, ['cx'])  # Apply to CNOT gates
-        return noise_model 
-
-    for method in [1]: 
-        for f in [.95,.995]:
-            for use_pytket in [False, True]:
-
-                noise = create_noise_model(f)
-
-                print(f"Starting to run benchmarks with {method}, use_pytket: {use_pytket}, 2Q error rate set to {f}")
-            
-                # not really sure how tket optimiser works, so just use default settings 
-                high_optimisation = tket_optimiser.tket_transformer_generator(cx_fidelity=f) 
-                if use_pytket:
-                    exec_options={ "optimization_level": 0, "layout_method":'sabre', "routing_method":'sabre', "transformer": high_optimisation, "noise_model": noise  }
-                else:
-                    exec_options= {"noise_model" : noise}
-                run(min_qubits=min_qubits, max_qubits=max_qubits, method=method, exec_options=exec_options,suffix=f"{method}_{f}_{use_pytket}")
+    run()
