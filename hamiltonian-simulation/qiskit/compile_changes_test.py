@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
 
     for method in [1,2]: 
-        for f in [.995]:
+        for f in [.99]:
             for n_spins in [8]:
                 for k in [5]:
                     for t in [1.151243815198]:
@@ -81,7 +81,6 @@ if __name__ == "__main__":
 
 
                         transpiled_qc.draw("mpl", ax=ax, filename="transpiled_qc" + filename_suffix)
-
                         fig = figure(figsize=(20,20))
                         ax = fig.add_subplot()
                         title = ex.transpile_for_metrics(compiled_qc)

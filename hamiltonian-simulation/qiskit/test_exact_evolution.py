@@ -100,6 +100,7 @@ def save_and_combine_images(images, output_filename, method, fidelities):
     # Save the new image
     combined_image.save(output_filename)
 
+from qiskit.visualization import plot_distribution
 def set_precalculated_data(w, k, t, min_qubits, max_qubits):
 
     """
@@ -117,11 +118,15 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
     precalculated_data["k"] = k
     precalculated_data["t"] = t
 
-# add parameter random values to precalculated data to ensure consistency
+    # add parameter random values to precalculated data to ensure consistency
     np.random.seed(26)
-    precalculated_data['h_x'] = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
+    precalculated_data["h_x"] = list(
+        np.ones(20)
+    )  # random numbers between [-1, 1]
     np.random.seed(75)
-    precalculated_data['h_z'] = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
+    precalculated_data["h_z"] = list(
+        np.ones(20)
+    )  # random numbers between [-1, 1]
 
     num_shots = 100000
 
@@ -170,107 +175,17 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
 
         ham.precalculated_data = precalculated_data
 
+import matplotlib.pyplot as plt 
 
 if __name__ == "__main__":
 
-    """
-    The purpose of this script is to go through several ranges of k or t, which would usually require you to edit the precalculated data jupyter notebook. 
+    for t in np.linspace(0,1,100):
+        
+        print(t)
 
-    Choose max_qubits that are relatively small, since an expensive calculate to recalculate the "precalculated" distribution will be done for all the different settings in k_range and time_range. 
-    """
+        set_precalculated_data(1,1,1,6,6)
 
-    # min and max qubits. on my laptop, 12 is the maximum amount 
-    min_qubits = 4  
-    max_qubits = 10 
+        exact = ham.Hamiltonian_Simulation_Exact(6, t, method=1)
 
-    # selected trotter steps to go through, can be any length 
-    k_range = [5]
-
-    # selected times to go through, can be of any length 
-    # a special note: do not choose t=1 when k=3.. that happens to produce gates with 0 rotation that are compiled out!
-    time_range = [.2]
-
-    # methods to go through, can be list of length 1 or 2 
-    methods = [1,3]
-
-    # 2Q fidelity with depolarization model, should be length 2 for script to work. default, from Charlie Baldwin's graph, is .95 and .995. 
-    f_range = [.95, .995, 1]
-
-    for k in k_range:
-        for t in time_range:
-
-            # overwrite the precalculated_data inside of hamiltonian_simulation_benchmark for the settings desired 
-            # does this in a global manner by editing the hamiltonian_simulation_benchmark module
-            set_precalculated_data(w=1, k=k, t=t, min_qubits = min_qubits, max_qubits = max_qubits)
-
-            for method in methods:
-
-                for f in f_range: 
-
-                    for use_pytket in [False, True]:
-
-                        noise = create_noise_model(f)
-
-                        # not really sure how tket optimiser works, so just use default settings
-                        high_optimisation = tket_optimiser.tket_transformer_generator(
-                            cx_fidelity=f
-                        )
-                        if use_pytket:
-                            exec_options = {
-                                "optimization_level": 0,
-                                "layout_method": "sabre",
-                                "routing_method": "sabre",
-                                "transformer": high_optimisation,
-                                "noise_model": noise,
-                            }
-                        else:
-                            exec_options = {"noise_model": noise}
-
-                        suffix = f"{k}_{t}_{method}_{f}_{use_pytket}"
-
-                        # this produces images in ./__images/qasm_simulator, and we use those to make combined images
-                        ham.run(
-                            min_qubits=min_qubits,
-                            max_qubits=max_qubits,
-                            method=method,
-                            exec_options=exec_options,
-                            suffix=suffix,
-                            use_XX_YY_ZZ_gates=False
-                        )
-
-                    image_suffix = f"{k}_{t}_{method}_{f}".replace(".","")
-                    # construct and save example transpiled (pre-compiled) circuit 
-                    qc = ham.HamiltonianSimulation((min_qubits + max_qubits)//2, K=k, t=t, method=method, measure_x= False) 
-                    transpile(qc,ex.backend, optimization_level=0).draw("mpl", filename="qc_" + image_suffix + "_False")
-
-                    # construct and save example compiled (pytket) circuit 
-                    compiled_qc = high_optimisation(transpile(qc, ex.backend, optimization_level=0), backend=ex.backend)
-                    compiled_qc.draw("mpl", filename="qc_" + image_suffix + "_True")
-
-                        # the code in this for loop will generate a bunch of images for all the different specified methods, fidelities, and use of pytket. 
-
-                benchmark_result_images = []
-
-                for f in f_range:
-                    for use_pytket in [False, True]: 
-
-                        suffix = f"{k}_{t}_{method}_{f}_{use_pytket}"
-
-                        file_name = "__images/qasm_simulator/Hamiltonian-Simulation-vplot" + suffix + ".jpg" 
-
-                        benchmark_result_images.append(Image.open(file_name))
-
-                save_and_combine_images(benchmark_result_images, f"combined_vplots_method_{method}_{k}_{t}_{f_range}" + ".jpg", method, f_range)
-
-                circuit_images = []
-
-                for f in f_range:
-                    for use_pytket in [False, True]: 
-
-                        suffix = f"{k}_{t}_{method}_{f}_{use_pytket}".replace(".","")
-
-                        file_name = "qc_" + suffix + ".png" 
-
-                        circuit_images.append(Image.open(file_name))
-
-                save_and_combine_images(circuit_images, f"combined_circuit_plot_{method}_{k}_{t}_{f_range}" + ".jpg", method, f_range)
+        plot_distribution(exact, sort='asc', filename= f"exact/{t}".replace(".",""))
+      

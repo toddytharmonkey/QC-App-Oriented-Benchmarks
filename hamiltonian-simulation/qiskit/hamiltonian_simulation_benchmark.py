@@ -13,7 +13,9 @@ from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.quantum_info import SparsePauliOp
 from qiskit.primitives import Estimator
 from qiskit.quantum_info import Statevector
-from qiskit_algorithms import TimeEvolutionProblem, SciPyRealEvolver
+from qiskit_algorithms import TimeEvolutionProblem, SciPyRealEvolver, TrotterQRTE
+from qiskit.synthesis import SuzukiTrotter
+from qiskit.circuit.library import PauliEvolutionGate
 
 sys.path[1:1] = ["_common", "_common/qiskit"]
 sys.path[1:1] = ["../../_common", "../../_common/qiskit", "../../_common/transformers"]
@@ -50,7 +52,7 @@ precalculated_data = json.loads(data)
 
 def initial_state(n_spins, method): 
 
-    if method == 1 or method == 3: 
+    if method == 1 or method == 3 or method==4: 
 
         qc = QuantumCircuit(n_spins)
 
@@ -72,16 +74,35 @@ def construct_heisenberg_hamiltonian(n_spins, w, h_x, h_z):
         x_term = 'I' * i + 'X' + 'I' * (n_spins - i - 1)
         z_term = 'I' * i + 'Z' + 'I' * (n_spins - i - 1)
         pauli_strings.append(x_term)
-        coefficients.append(2 * w * h_x[i])
+        coefficients.append(w * h_x[i])
         pauli_strings.append(z_term)
-        coefficients.append(2 * w * h_z[i])
+        coefficients.append(w * h_z[i])
+
+    identity_string = ['I'] * n_spins 
 
     # Interaction terms
-    for i in range(n_spins):
-        for j in range(i + 1, n_spins):
-            xx_term = 'I' * i + 'X' + 'I' * (j - i - 1) + 'X' + 'I' * (n_spins - j - 1)
-            yy_term = 'I' * i + 'Y' + 'I' * (j - i - 1) + 'Y' + 'I' * (n_spins - j - 1)
-            zz_term = 'I' * i + 'Z' + 'I' * (j - i - 1) + 'Z' + 'I' * (n_spins - j - 1)
+
+    for j in range(2):
+        for i in range(j % 2, n_spins - 1, 2):
+
+
+            xx_term = identity_string.copy()
+            yy_term = identity_string.copy() 
+            zz_term = identity_string.copy()
+
+            xx_term[i] = 'X'
+            xx_term[(i+1) % n_spins] = 'X'
+
+            yy_term[i] = 'Y'
+            yy_term[(i+1) % n_spins] = 'Y'
+
+            zz_term[i] = 'Z'
+            zz_term[(i+1) % n_spins] = 'Z'
+
+            xx_term = ''.join(xx_term)
+            yy_term = ''.join(yy_term)
+            zz_term = ''.join(zz_term)
+
             pauli_strings.append(xx_term)
             coefficients.append(1.0)
             pauli_strings.append(yy_term)
@@ -91,6 +112,7 @@ def construct_heisenberg_hamiltonian(n_spins, w, h_x, h_z):
 
     # Construct SparsePauliOp
     sparse_pauli_op = SparsePauliOp.from_list(zip(pauli_strings, coefficients))
+    print(sparse_pauli_op)
     return sparse_pauli_op
 
 def Hamiltonian_Simulation_Exact(n_spins, t, method=1):
@@ -173,7 +195,7 @@ def HamiltonianSimulation(n_spins, K, t, method = 1, measure_x = False):
                         qc.append(xxyyzz_opt_gate(tau).to_instruction(), [qr[i], qr[(i + 1) % n_spins]])
 
             qc.barrier()
-    else:
+    elif method==2: 
 
         g=0.2 # strength of tranverse field
 
@@ -207,14 +229,19 @@ def HamiltonianSimulation(n_spins, K, t, method = 1, measure_x = False):
         qc.barrier()
 
 
-        #TFIM Hamiltonian simulation
-        # for k in range(K):
-        #     [qc.rx(-2 * tau * w * h_x[i], qr[i]) for i in range(n_spins)]
-        #     # ZZ operation on each pair of qubits in linear chain
-        #     for j in range(2):
-        #         for i in range(j%2, n_spins - 1, 2):
-        #             qc.append(-zz_gate(tau).to_instruction(), [qr[i], qr[(i + 1) % n_spins]])
-        #
+    else: 
+        w = precalculated_data['w']  # strength of disorder
+        h_x = precalculated_data['h_x'][:n_spins] # precalculated random numbers between [-1, 1]
+        h_z = precalculated_data['h_z'][:n_spins]
+
+        hamiltonian = construct_heisenberg_hamiltonian(n_spins, w, h_x, h_z)
+
+        for k in range(0, n_spins, 2):
+            qc.x(qr[k])
+        qc.barrier()
+
+        qc.append(PauliEvolutionGate(hamiltonian,time=t, synthesis=SuzukiTrotter(reps=5)), qr) 
+
 
     # measure all qubits 
 
@@ -325,13 +352,9 @@ def analyze_and_print_result(qc, result, num_qubits, type, num_shots, method):
         correct_dist = precalculated_data[f"Qubits3 - {num_qubits}"]
     else: 
         # Classically calculated Heisenburg Ham Sim. Results 
-        correct_dist = precalculated_data[f"Qubits2- {num_qubits}"]
+        correct_dist = precalculated_data[f"Qubits2 - {num_qubits}"]
 
-    # print("counts")
-    # print(counts)
-    # print("correct_dist")
-    # print(correct_dist)
-    # print()
+
     #
     # normalized_counts = {}
     #
