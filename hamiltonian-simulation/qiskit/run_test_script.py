@@ -131,7 +131,7 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
 
         qc = ham.HamiltonianSimulation(n_spins, k, t, method=1)
 
-        dist2 = ham.Hamiltonian_Simulation_Exact(n_spins, t, method=1)
+        dist2 = ham.HamiltonianSimulationExact(n_spins, t, method=1)
 
         qc3 = ham.HamiltonianSimulation(n_spins, k, t, method=2)
 
@@ -162,11 +162,11 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
                 dist3[key] = prob
 
                 # add dist values to precalculated data for use in fidelity calculation
-                precalculated_data[f"Qubits - {n_spins}"] = dist
+                precalculated_data[f"Heisenburg - Qubits{n_spins}"] = dist  
+                precalculated_data[f"Exact Heisenburg - Qubits{n_spins}"] = ham.HamiltonianSimulationExact(n_spins, method=1)
+                precalculated_data[f"TFIM - Qubits{n_spins}"] = dist3 
+                precalculated_data[f"Exact TFIM - Qubits{n_spins}"] = ham.HamiltonianSimulationExact(n_spins, method=2) 
 
-                precalculated_data[f"Qubits2 - {n_spins}"] = dist2
-
-                precalculated_data[f"Qubits3 - {n_spins}"] = dist3
 
         ham.precalculated_data = precalculated_data
 
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     """
 
     # min and max qubits. on my laptop, 12 is the maximum amount 
-    min_qubits = 4  
+    min_qubits = 2  
     max_qubits = 10 
 
     # selected trotter steps to go through, can be any length 
@@ -191,7 +191,7 @@ if __name__ == "__main__":
     time_range = [.2]
 
     # methods to go through, can be list of length 1 or 2 
-    methods = [1,3]
+    methods = [1]
 
     # 2Q fidelity with depolarization model, should be length 2 for script to work. default, from Charlie Baldwin's graph, is .95 and .995. 
     f_range = [.95, .995, 1]
@@ -240,7 +240,7 @@ if __name__ == "__main__":
 
                     image_suffix = f"{k}_{t}_{method}_{f}".replace(".","")
                     # construct and save example transpiled (pre-compiled) circuit 
-                    qc = ham.HamiltonianSimulation((min_qubits + max_qubits)//2, K=k, t=t, method=method, measure_x= False) 
+                    qc = ham.HamiltonianSimulation((min_qubits + max_qubits)//2, K=k, t=t, method=method) 
                     transpile(qc,ex.backend, optimization_level=0).draw("mpl", filename="qc_" + image_suffix + "_False")
 
                     # construct and save example compiled (pytket) circuit 

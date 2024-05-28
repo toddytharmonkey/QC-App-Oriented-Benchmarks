@@ -52,7 +52,9 @@ precalculated_data = json.loads(data)
 
 def initial_state(n_spins, method): 
 
-    if method == 1 or method == 3 or method==4: 
+    if method == 1: 
+
+        # checkerboard state, or "Neele" state 
 
         qc = QuantumCircuit(n_spins)
 
@@ -60,11 +62,56 @@ def initial_state(n_spins, method):
             qc.x([k])
 
     else:
-        raise NotImplementedError
+
+        # state with initial state of GHZ state: 1/sqrt(2) ( |00...> + |11...> )
+        qc.h(0)
+        for k in range(1, n_spins):
+            qc.cx(k-1, k)
 
     return qc 
 
-def construct_heisenberg_hamiltonian(n_spins, w, h_x, h_z):
+def construct_TFIM_hamiltonian(n_spins):
+
+    pauli_strings = []
+    coefficients = []
+
+    # g is hardcoded for now 
+    g= .2  
+
+    # the Pauli spin vector product
+    for i in range(n_spins):
+        x_term = 'I' * i + 'X' + 'I' * (n_spins - i - 1)
+        pauli_strings.append(x_term)
+        coefficients.append(g)
+
+    identity_string = ['I'] * n_spins 
+
+    # ZZ operation on each pair of qubits in linear chain
+    for j in range(2):
+        for i in range(j%2, n_spins-1, 2):
+
+            zz_term = identity_string.copy()
+
+            zz_term[i] = 'Z'
+            zz_term[(i+1) % n_spins] = 'Z'
+
+            zz_term = ''.join(zz_term)
+
+            pauli_strings.append(zz_term)
+            coefficients.append(1.0)
+
+    # Construct SparsePauliOp
+    sparse_pauli_op = SparsePauliOp.from_list(zip(pauli_strings, coefficients))
+    # remember to remove this print statement before merging into main 
+    print(sparse_pauli_op)
+    return sparse_pauli_op
+
+
+def construct_heisenberg_hamiltonian(n_spins):
+
+    w = precalculated_data['w']  # strength of disorder
+    h_x = precalculated_data['h_x'][:n_spins] # precalculated random numbers between [-1, 1]
+    h_z = precalculated_data['h_z'][:n_spins]
     # Initialize lists to hold Pauli strings and coefficients
     pauli_strings = []
     coefficients = []
@@ -112,19 +159,24 @@ def construct_heisenberg_hamiltonian(n_spins, w, h_x, h_z):
 
     # Construct SparsePauliOp
     sparse_pauli_op = SparsePauliOp.from_list(zip(pauli_strings, coefficients))
-    print(sparse_pauli_op)
+
     return sparse_pauli_op
 
-def Hamiltonian_Simulation_Exact(n_spins, t, method=1):
+def construct_hamiltonian(n_spins, method):
+
+    if method == 1:
+        return construct_heisenberg_hamiltonian(n_spins)
+    elif method == 2: 
+        return construct_TFIM_hamiltonian(n_spins)
+    else:
+        raise ValueError("Method is not equal to 1 or 2.")
+
+def HamiltonianSimulationExact(n_spins, t, method=1):
     """
     Returns the distribution after simulating our hamiltonian simulation circuits using a classically calculated (using SciPy) matrix evolution
     """
 
-    w = precalculated_data['w']  # strength of disorder
-    h_x = precalculated_data['h_x'][:n_spins] # precalculated random numbers between [-1, 1]
-    h_z = precalculated_data['h_z'][:n_spins]
-
-    hamiltonian = construct_heisenberg_hamiltonian(n_spins, w, h_x, h_z)
+    hamiltonian = construct_hamiltonian(n_spins, method) 
 
     time_problem = TimeEvolutionProblem(hamiltonian, t, initial_state = initial_state(n_spins, method))
 
@@ -155,13 +207,9 @@ def HamiltonianSimulation(n_spins, K, t, method = 1, measure_x = False):
     h_z = precalculated_data['h_z'][:n_spins]
 
 
-    if method==1 or method==3:
-        # start with initial state of 1010101...
-        for k in range(0, n_spins, 2):
-            qc.x(qr[k])
-        qc.barrier()
+    if method==1:
 
-    # loop over each trotter step, adding gates to the circuit defining the hamiltonian
+    # loop over each trotterustep, adding gates to the circuit defining the hamiltonian
         for k in range(K):
             # the Pauli spin vector product
             [qc.rx(2 * tau * w * h_x[i], qr[i]) for i in range(n_spins)]
@@ -195,6 +243,7 @@ def HamiltonianSimulation(n_spins, K, t, method = 1, measure_x = False):
                         qc.append(xxyyzz_opt_gate(tau).to_instruction(), [qr[i], qr[(i + 1) % n_spins]])
 
             qc.barrier()
+
     elif method==2: 
 
         g=0.2 # strength of tranverse field
@@ -230,6 +279,9 @@ def HamiltonianSimulation(n_spins, K, t, method = 1, measure_x = False):
 
 
     else: 
+
+        raise ValueError("Invalid method specification.")
+
         w = precalculated_data['w']  # strength of disorder
         h_x = precalculated_data['h_x'][:n_spins] # precalculated random numbers between [-1, 1]
         h_z = precalculated_data['h_z'][:n_spins]
@@ -334,7 +386,7 @@ from qiskit.visualization import plot_distribution
 import matplotlib.pyplot as plt 
 # Analyze and print measured results
 # Compute the quality of the result based on operator expectation for each state
-def analyze_and_print_result(qc, result, num_qubits, type, num_shots, method):
+def analyze_and_print_result(qc, result, num_qubits, type, num_shots, method, compare_to_exact_results):
 
     counts = result.get_counts(qc)
     if verbose: print(f"For type {type} measured: {counts}")
@@ -344,18 +396,22 @@ def analyze_and_print_result(qc, result, num_qubits, type, num_shots, method):
     # we have precalculated the correct distribution that a perfect quantum computer will return
     # it is stored in the json file we import at the top of the code
 
-    if method == 1:
+    if method == 1 and not compare_to_exact_results:
         # ideal Heisenburg Ham Sim. Circuit results
-        correct_dist = precalculated_data[f"Qubits - {num_qubits}"]
-    elif method ==2:
+        correct_dist = precalculated_data[f"Heisenburg - Qubits{num_qubits}"]
+    elif method == 1 and compare_to_exact_results:
         # ideal TFIM Ham Sim. Circuit results 
-        correct_dist = precalculated_data[f"Qubits3 - {num_qubits}"]
-    else: 
+        correct_dist = precalculated_data[f"Exact Heisenburg - Qubits{num_qubits}"]
+    elif method == 2 and not compare_to_exact_results:   
         # Classically calculated Heisenburg Ham Sim. Results 
-        correct_dist = precalculated_data[f"Qubits2 - {num_qubits}"]
+        correct_dist = precalculated_data[f"TFIM - Qubits{num_qubits}"]
+    elif method == 2 and compare_to_exact_results:
+        # ideal TFIM Ham Sim. Circuit results 
+        correct_dist = precalculated_data[f"Exact TFIM - Qubits{num_qubits}"]
+    else: 
+        raise ValueError("Method 1 is not 1 or 2, or compare_to_exact_results was unexpected type.")
 
-
-    #
+    # in case you want to check the distributions directly, uncomment the following lines. 
     # normalized_counts = {}
     #
     # for key in counts.keys():
@@ -381,6 +437,7 @@ def run(min_qubits=2, max_qubits=8, max_circuits=3, skip_qubits=1, num_shots=100
         use_XX_YY_ZZ_gates = False,
         backend_id='qasm_simulator', provider_backend=None,
         hub="ibm-q", group="open", project="main", exec_options=None,
+        compare_to_exact_results = False,
         context=None, method=1,suffix=""):
 
     print(f"{benchmark_name} Benchmark Program - Qiskit")
@@ -411,7 +468,7 @@ def run(min_qubits=2, max_qubits=8, max_circuits=3, skip_qubits=1, num_shots=100
     def execution_handler(qc, result, num_qubits, type, num_shots):
         # determine fidelity of result set
         num_qubits = int(num_qubits)
-        counts, expectation_a = analyze_and_print_result(qc, result, num_qubits, type, num_shots, method)
+        counts, expectation_a = analyze_and_print_result(qc, result, num_qubits, type, num_shots, method, compare_to_exact_results)
         metrics.store_metric(num_qubits, type, 'fidelity', expectation_a)
 
     # Initialize execution module using the execution result handler above and specified backend_id
@@ -454,7 +511,7 @@ def run(min_qubits=2, max_qubits=8, max_circuits=3, skip_qubits=1, num_shots=100
             ts = time.time()
             h_x = precalculated_data['h_x'][:num_qubits] # precalculated random numbers between [-1, 1]
             h_z = precalculated_data['h_z'][:num_qubits]
-            qc = HamiltonianSimulation(num_qubits, K=k, t=t, method=method, measure_x= False) 
+            qc = HamiltonianSimulation(num_qubits, K=k, t=t, method=method) 
             metrics.store_metric(num_qubits, circuit_id, 'create_time', time.time() - ts)
             qc.draw()
             
