@@ -31,7 +31,6 @@ def create_noise_model(fidelity):
 
 from PIL import Image, ImageDraw, ImageFont
 
-
 def save_and_combine_images(images, output_filename, method, fidelities):
     """
     Given images that correspond to multiple configurations of using the pytket optimizer or not,
@@ -47,9 +46,15 @@ def save_and_combine_images(images, output_filename, method, fidelities):
     max_width = max(image.size[0] for image in images)
     max_height = max(image.size[1] for image in images)
 
+    # Padding for labels
+    label_padding = 50
+    title_padding = 100
+
     # Create a new image to accommodate the grid with extra space for text
     combined_image = Image.new(
-        "RGB", (2 * max_width, num_fidelities * max_height + 150), "white"
+        "RGB", 
+        (2 * max_width + label_padding, num_fidelities * max_height + title_padding + label_padding), 
+        "white"
     )  # Adjusted space for labels and title
 
     # Create drawing object
@@ -57,24 +62,25 @@ def save_and_combine_images(images, output_filename, method, fidelities):
 
     # Use a larger font size; download a .ttf file or use available system fonts
     try:
-        font = ImageFont.truetype("arial.ttf", size=24)  # Specify path to a TTF font file and size
+        title_font = ImageFont.truetype("arial.ttf", size=36)  # Larger font for title
+        label_font = ImageFont.truetype("arial.ttf", size=28)  # Larger font for labels
     except IOError:
-        font = ImageFont.load_default()
+        title_font = ImageFont.load_default()
+        label_font = ImageFont.load_default()
 
     # Set text for title and labels
     title = f"Hamiltonian Simulation Method {method}"
-    y_label = "2Q gate fidelity"
     x_labels = ["No compilation", "Pytket gate compilation"]
 
     # Calculate center for the title and add it
-    title_width = draw.textlength(title, font=font)
-    title_height = font.size
-    draw.text(((2 * max_width - title_width) / 2, 10), title, fill="black", font=font)
+    title_width = draw.textlength(title, font=title_font)
+    title_height = title_font.size
+    draw.text(((2 * max_width + label_padding - title_width) / 2, 10), title, fill="black", font=title_font)
 
     # Paste the images and add axis labels
     for index, image in enumerate(images):
-        x = (index % 2) * max_width
-        y = (index // 2) * max_height + 50  # Adjust for title space
+        x = (index % 2) * max_width + label_padding
+        y = (index // 2) * max_height + title_padding  # Adjust for title and label space
 
         # Center the image in the cell
         img_x = x + (max_width - image.size[0]) // 2
@@ -84,18 +90,22 @@ def save_and_combine_images(images, output_filename, method, fidelities):
     # Center x-axis labels below each column of images
     for i in range(2):
         x_label = x_labels[i]
-        label_width = draw.textlength(x_label, font=font)
-        label_height = font.size
-        draw.text((i * max_width + (max_width - label_width) / 2, num_fidelities * max_height + 60), x_label, fill="black", font=font)
+        label_width = draw.textlength(x_label, font=label_font)
+        label_height = label_font.size
+        draw.text(
+            (i * max_width + (max_width - label_width) / 2 + label_padding, 
+             num_fidelities * max_height + title_padding + 10), 
+            x_label, fill="black", font=label_font
+        )
 
     # Y-axis fidelity labels
     for i, fidelity in enumerate(fidelities):
         y_label = f"Fidelity {fidelity}"
-        y_label_width = draw.textlength(y_label, font=font)
-        y_label_height = font.size
+        y_label_width = draw.textlength(y_label, font=label_font)
+        y_label_height = label_font.size
         y_label_x = 10
-        y_label_y = i * max_height + 50 + (max_height - y_label_height) / 2  # Centered in each row of images
-        draw.text((y_label_x, y_label_y), y_label, fill="black", font=font)
+        y_label_y = i * max_height + title_padding + (max_height - y_label_height) / 2  # Centered in each row of images
+        draw.text((y_label_x, y_label_y), y_label, fill="black", font=label_font)
 
     # Save the new image
     combined_image.save(output_filename)
@@ -131,14 +141,11 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
 
         qc = ham.HamiltonianSimulation(n_spins, k, t, method=1)
 
-        dist2 = ham.HamiltonianSimulationExact(n_spins, t, method=1)
-
         qc3 = ham.HamiltonianSimulation(n_spins, k, t, method=2)
 
         transpiled_qc = transpile(qc, backend, optimization_level=0)
         job = backend.run(transpiled_qc, shots=num_shots)
         result = job.result()
-
         counts = result.get_counts(qc)
 
         transpiled_qc3 = transpile(qc3, backend, optimization_level=0)
@@ -151,25 +158,17 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
             prob = counts[key] / num_shots
             dist[key] = prob
 
-            #     dist2 = {}
-            #     for key in counts2.keys():
-            #         prob = counts2[key] / num_shots
-            #         dist2[key] = prob
+        dist3 = {}
+        for key in counts3.keys():
+            prob = counts3[key] / num_shots
+            dist3[key] = prob
 
-            dist3 = {}
-            for key in counts3.keys():
-                prob = counts3[key] / num_shots
-                dist3[key] = prob
-
-                # add dist values to precalculated data for use in fidelity calculation
-                precalculated_data[f"Heisenburg - Qubits{n_spins}"] = dist  
-                precalculated_data[f"Exact Heisenburg - Qubits{n_spins}"] = ham.HamiltonianSimulationExact(n_spins, method=1)
-                precalculated_data[f"TFIM - Qubits{n_spins}"] = dist3 
-                precalculated_data[f"Exact TFIM - Qubits{n_spins}"] = ham.HamiltonianSimulationExact(n_spins, method=2) 
-
-
-        ham.precalculated_data = precalculated_data
-
+        # add dist values to precalculated data for use in fidelity calculation
+        precalculated_data[f"Heisenburg - Qubits{n_spins}"] = dist  
+        precalculated_data[f"Exact Heisenburg - Qubits{n_spins}"] = ham.HamiltonianSimulationExact(n_spins,t=t, method=1)
+        precalculated_data[f"TFIM - Qubits{n_spins}"] = dist3 
+        precalculated_data[f"Exact TFIM - Qubits{n_spins}"] = ham.HamiltonianSimulationExact(n_spins, t=t, method=2) 
+    ham.precalculated_data = precalculated_data
 
 if __name__ == "__main__":
 
@@ -193,6 +192,8 @@ if __name__ == "__main__":
     # methods to go through, can be list of length 1 or 2 
     methods = [1]
 
+    compare_to_exact = [False, True] 
+
     # 2Q fidelity with depolarization model, should be length 2 for script to work. default, from Charlie Baldwin's graph, is .95 and .995. 
     f_range = [.95, .995, 1]
 
@@ -204,73 +205,54 @@ if __name__ == "__main__":
             set_precalculated_data(w=1, k=k, t=t, min_qubits = min_qubits, max_qubits = max_qubits)
 
             for method in methods:
+                for is_exact in compare_to_exact: 
 
-                for f in f_range: 
+                    for f in f_range: 
 
-                    for use_pytket in [False, True]:
+                        for use_pytket in [False, True]:
 
-                        noise = create_noise_model(f)
+                            noise = create_noise_model(f)
 
-                        # not really sure how tket optimiser works, so just use default settings
-                        high_optimisation = tket_optimiser.tket_transformer_generator(
-                            cx_fidelity=f
-                        )
-                        if use_pytket:
-                            exec_options = {
-                                "optimization_level": 0,
-                                "layout_method": "sabre",
-                                "routing_method": "sabre",
-                                "transformer": high_optimisation,
-                                "noise_model": noise,
-                            }
-                        else:
-                            exec_options = {"noise_model": noise}
+                            # not really sure how tket optimiser works, so just use default settings
+                            high_optimisation = tket_optimiser.tket_transformer_generator(
+                                # !!!! cx fidelity set to .95 here, not dynamic 
+                                cx_fidelity=.95
+                            )
+                            if use_pytket:
+                                exec_options = {
+                                    "optimization_level": 0,
+                                    "layout_method": "sabre",
+                                    "routing_method": "sabre",
+                                    "transformer": high_optimisation,
+                                    "noise_model": noise,
+                                }
+                            else:
+                                exec_options = {"noise_model": noise}
 
-                        suffix = f"{k}_{t}_{method}_{f}_{use_pytket}"
+                            suffix = f"{k}_{t}_{method}_{is_exact}_{f}_{use_pytket}"
 
-                        # this produces images in ./__images/qasm_simulator, and we use those to make combined images
-                        ham.run(
-                            min_qubits=min_qubits,
-                            max_qubits=max_qubits,
-                            method=method,
-                            exec_options=exec_options,
+                            # this produces images in ./__images/qasm_simulator, and we use those to make combined images
+                            ham.run(
+                                min_qubits=min_qubits,
+                                max_qubits=max_qubits,
+                                method=method,
+                                exec_options=exec_options,
                             suffix=suffix,
-                            use_XX_YY_ZZ_gates=False
+                            use_XX_YY_ZZ_gates=False,
+                            compare_to_exact_results = is_exact, 
                         )
 
-                    image_suffix = f"{k}_{t}_{method}_{f}".replace(".","")
-                    # construct and save example transpiled (pre-compiled) circuit 
-                    qc = ham.HamiltonianSimulation((min_qubits + max_qubits)//2, K=k, t=t, method=method) 
-                    transpile(qc,ex.backend, optimization_level=0).draw("mpl", filename="qc_" + image_suffix + "_False")
 
-                    # construct and save example compiled (pytket) circuit 
-                    compiled_qc = high_optimisation(transpile(qc, ex.backend, optimization_level=0), backend=ex.backend)
-                    compiled_qc.draw("mpl", filename="qc_" + image_suffix + "_True")
+                    benchmark_result_images = []
 
-                        # the code in this for loop will generate a bunch of images for all the different specified methods, fidelities, and use of pytket. 
+                    for f in f_range:
+                        for use_pytket in [False, True]: 
 
-                benchmark_result_images = []
+                            suffix = f"{k}_{t}_{method}_{is_exact}_{f}_{use_pytket}"
 
-                for f in f_range:
-                    for use_pytket in [False, True]: 
+                            file_name = "__images/qasm_simulator/Hamiltonian-Simulation-vplot" + suffix + ".jpg" 
 
-                        suffix = f"{k}_{t}_{method}_{f}_{use_pytket}"
+                            benchmark_result_images.append(Image.open(file_name))
 
-                        file_name = "__images/qasm_simulator/Hamiltonian-Simulation-vplot" + suffix + ".jpg" 
+                    save_and_combine_images(benchmark_result_images, f"combined_vplots_method_{method}_{is_exact}_{k}_{t}_{f_range}" + ".jpg", method, f_range)
 
-                        benchmark_result_images.append(Image.open(file_name))
-
-                save_and_combine_images(benchmark_result_images, f"combined_vplots_method_{method}_{k}_{t}_{f_range}" + ".jpg", method, f_range)
-
-                circuit_images = []
-
-                for f in f_range:
-                    for use_pytket in [False, True]: 
-
-                        suffix = f"{k}_{t}_{method}_{f}_{use_pytket}".replace(".","")
-
-                        file_name = "qc_" + suffix + ".png" 
-
-                        circuit_images.append(Image.open(file_name))
-
-                save_and_combine_images(circuit_images, f"combined_circuit_plot_{method}_{k}_{t}_{f_range}" + ".jpg", method, f_range)

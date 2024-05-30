@@ -52,12 +52,11 @@ precalculated_data = json.loads(data)
 
 def initial_state(n_spins, method): 
 
+    qc = QuantumCircuit(n_spins)
+
     if method == 1: 
 
         # checkerboard state, or "Neele" state 
-
-        qc = QuantumCircuit(n_spins)
-
         for k in range(0, n_spins, 2):
             qc.x([k])
 
@@ -103,7 +102,6 @@ def construct_TFIM_hamiltonian(n_spins):
     # Construct SparsePauliOp
     sparse_pauli_op = SparsePauliOp.from_list(zip(pauli_strings, coefficients))
     # remember to remove this print statement before merging into main 
-    print(sparse_pauli_op)
     return sparse_pauli_op
 
 
@@ -185,7 +183,7 @@ def HamiltonianSimulationExact(n_spins, t, method=1):
     return result.evolved_state.probabilities_dict()
     
 
-def HamiltonianSimulation(n_spins, K, t, method = 1, measure_x = False):
+def HamiltonianSimulation(n_spins, K, t, method = 1):
     '''
     Construct a Qiskit circuit for Hamiltonian Simulation
     :param n_spins:The number of spins to simulate
@@ -208,6 +206,10 @@ def HamiltonianSimulation(n_spins, K, t, method = 1, measure_x = False):
 
 
     if method==1:
+
+    # checkerboard state, or "Neele" state 
+        for k in range(0, n_spins, 2):
+            qc.x(qr[k])
 
     # loop over each trotterustep, adding gates to the circuit defining the hamiltonian
         for k in range(K):
@@ -390,9 +392,7 @@ def analyze_and_print_result(qc, result, num_qubits, type, num_shots, method, co
 
     counts = result.get_counts(qc)
     if verbose: print(f"For type {type} measured: {counts}")
-
-
-
+    #
     # we have precalculated the correct distribution that a perfect quantum computer will return
     # it is stored in the json file we import at the top of the code
 
@@ -400,13 +400,13 @@ def analyze_and_print_result(qc, result, num_qubits, type, num_shots, method, co
         # ideal Heisenburg Ham Sim. Circuit results
         correct_dist = precalculated_data[f"Heisenburg - Qubits{num_qubits}"]
     elif method == 1 and compare_to_exact_results:
-        # ideal TFIM Ham Sim. Circuit results 
+        # Classically calculated Heisenburg Ham Sim. Results 
         correct_dist = precalculated_data[f"Exact Heisenburg - Qubits{num_qubits}"]
     elif method == 2 and not compare_to_exact_results:   
-        # Classically calculated Heisenburg Ham Sim. Results 
+        # ideal TFIM Ham Sim. Circuit results 
         correct_dist = precalculated_data[f"TFIM - Qubits{num_qubits}"]
     elif method == 2 and compare_to_exact_results:
-        # ideal TFIM Ham Sim. Circuit results 
+        # Clasically calculated TFIM results 
         correct_dist = precalculated_data[f"Exact TFIM - Qubits{num_qubits}"]
     else: 
         raise ValueError("Method 1 is not 1 or 2, or compare_to_exact_results was unexpected type.")
