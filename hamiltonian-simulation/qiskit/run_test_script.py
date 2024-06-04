@@ -14,9 +14,172 @@ import execute as ex
 import metrics as metrics
 import tket_optimiser as tket_optimiser
 
-
-
+from qiskit.quantum_info import SparsePauliOp
+from qiskit_algorithms import TimeEvolutionProblem, SciPyRealEvolver
+from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit_aer.noise import NoiseModel, depolarizing_error
+
+# Below code is copy/pasted from Jupyter Notebook
+# The functions in this cell are used to exactly simulate the hamiltonian evolution using a classical matrix evolution. 
+
+def initial_state(n_spins: int, initial_state: str = "checker") -> QuantumCircuit:
+    """
+    Initialize the quantum state.
+
+    Dev note: This function is copy/pasted from HamiltonianSimulation.
+    
+    Args:
+        n_spins (int): Number of spins (qubits).
+        initial_state (str): The chosen initial state. By default applies the checkerboard state, but can also be set to "ghz", the GHZ state.
+
+    Returns:
+        QuantumCircuit: The initialized quantum circuit.
+    """
+    qc = QuantumCircuit(n_spins)
+
+    if initial_state.strip().lower() == "checkerboard" or initial_state.strip().lower() == "neele":
+        # Checkerboard state, or "Neele" state
+        for k in range(0, n_spins, 2):
+            qc.x([k])
+    elif initial_state.strip().lower() == "ghz":
+        # GHZ state: 1/sqrt(2) (|00...> + |11...>)
+        qc.h(0)
+        for k in range(1, n_spins):
+            qc.cx(k-1, k)
+
+    return qc
+
+def construct_TFIM_hamiltonian(n_spins: int) -> SparsePauliOp:
+    """
+    Construct the Transverse Field Ising Model (TFIM) Hamiltonian.
+
+    Args:
+        n_spins (int): Number of spins (qubits).
+
+    Returns:
+        SparsePauliOp: The Hamiltonian represented as a sparse Pauli operator.
+    """
+    pauli_strings = []
+    coefficients = []
+    g = 0.2  # Strength of the transverse field
+
+    # Pauli spin vector product terms
+    for i in range(n_spins):
+        x_term = 'I' * i + 'X' + 'I' * (n_spins - i - 1)
+        pauli_strings.append(x_term)
+        coefficients.append(g)
+
+    identity_string = ['I'] * n_spins
+
+    # ZZ operation on each pair of qubits in a linear chain
+    for j in range(2):
+        for i in range(j % 2, n_spins - 1, 2):
+            zz_term = identity_string.copy()
+            zz_term[i] = 'Z'
+            zz_term[(i + 1) % n_spins] = 'Z'
+            zz_term = ''.join(zz_term)
+            pauli_strings.append(zz_term)
+            coefficients.append(1.0)
+
+    return SparsePauliOp.from_list(zip(pauli_strings, coefficients))
+
+def construct_heisenberg_hamiltonian(n_spins: int, w: int, hx: list[float], hz: list[float]) -> SparsePauliOp:
+    """
+    Construct the Heisenberg Hamiltonian with disorder.
+
+    Args:
+        n_spins (int): Number of spins (qubits).
+        w (float): Strength of two-qubit interactions for heisenburg hamiltonian. 
+        hx (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+        hz (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+
+    Returns:
+        SparsePauliOp: The Hamiltonian represented as a sparse Pauli operator.
+    """
+
+    pauli_strings = []
+    coefficients = []
+
+    # Disorder terms
+    for i in range(n_spins):
+        x_term = 'I' * i + 'X' + 'I' * (n_spins - i - 1)
+        z_term = 'I' * i + 'Z' + 'I' * (n_spins - i - 1)
+        pauli_strings.append(x_term)
+        coefficients.append(w * hx[i])
+        pauli_strings.append(z_term)
+        coefficients.append(w * hz[i])
+
+    identity_string = ['I'] * n_spins
+
+    # Interaction terms
+    for j in range(2):
+        for i in range(j % 2, n_spins - 1, 2):
+            xx_term = identity_string.copy()
+            yy_term = identity_string.copy()
+            zz_term = identity_string.copy()
+
+            xx_term[i] = 'X'
+            xx_term[(i + 1) % n_spins] = 'X'
+
+            yy_term[i] = 'Y'
+            yy_term[(i + 1) % n_spins] = 'Y'
+
+            zz_term[i] = 'Z'
+            zz_term[(i + 1) % n_spins] = 'Z'
+
+            pauli_strings.append(''.join(xx_term))
+            coefficients.append(1.0)
+            pauli_strings.append(''.join(yy_term))
+            coefficients.append(1.0)
+            pauli_strings.append(''.join(zz_term))
+            coefficients.append(1.0)
+
+    return SparsePauliOp.from_list(zip(pauli_strings, coefficients))
+
+def construct_hamiltonian(n_spins: int, hamiltonian: str, w: float, hx : list[float], hz: list[float]) -> SparsePauliOp:
+    """
+    Construct the Hamiltonian based on the specified method.
+
+    Args:
+        n_spins (int): Number of spins (qubits).
+        hamiltonian (str): Which hamiltonian to run. "Heisenburg" by default but can also choose "TFIM". 
+        w (float): Strength of two-qubit interactions for heisenburg hamiltonian. 
+        hx (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+        hz (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+
+    Returns:
+        SparsePauliOp: The constructed Hamiltonian.
+    """
+
+    hamiltonian = hamiltonian.strip().lower()
+
+    if hamiltonian == "heisenburg":
+        return construct_heisenberg_hamiltonian(n_spins, w, hx, hz)
+    elif hamiltonian == "tfim":
+        return construct_TFIM_hamiltonian(n_spins)
+    else:
+        raise ValueError("Invalid Hamiltonian specification.")
+
+def HamiltonianSimulationExact(n_spins: int, t: float, init_state: str, hamiltonian: str, w: float, hx: list[float], hz: list[float]) -> dict:
+    """
+    Perform exact Hamiltonian simulation using classical matrix evolution.
+
+    Args:
+        n_spins (int): Number of spins (qubits).
+        t (float): Duration of simulation.
+        init_state (str): The chosen initial state. By default applies the checkerboard state, but can also be set to "ghz", the GHZ state.
+        hamiltonian (str): Which hamiltonian to run. "Heisenburg" by default but can also choose "TFIM". 
+        w (float): Strength of two-qubit interactions for heisenburg hamiltonian. 
+        hx (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+        hz (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+
+    Returns:
+        dict: The distribution of the evolved state.
+    """
+    hamiltonian_sparse = construct_hamiltonian(n_spins, hamiltonian, w, hx, hz)
+    time_problem = TimeEvolutionProblem(hamiltonian_sparse, t, initial_state=initial_state(n_spins, init_state))
+    result = SciPyRealEvolver(num_timesteps=1).evolve(time_problem)
+    return result.evolved_state.probabilities_dict()
 
 def create_noise_model(fidelity):
 
@@ -110,64 +273,68 @@ def save_and_combine_images(images, output_filename, method, fidelities):
     # Save the new image
     combined_image.save(output_filename)
 
+
+
 def set_precalculated_data(w, k, t, min_qubits, max_qubits):
 
     """
     This code is copy/pasted from the Jupyter Notebook precalculated_Data.ipnyb.
     """
 
-    
-
     backend = Aer.get_backend("qasm_simulator")
 
     precalculated_data = {}
 
-    # store parameters in precalculated data
+# store parameters in precalculated data
     precalculated_data["w"] = w
     precalculated_data["k"] = k
     precalculated_data["t"] = t
 
 # add parameter random values to precalculated data to ensure consistency
     np.random.seed(26)
-    precalculated_data['h_x'] = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
+    precalculated_data['hx'] = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
     np.random.seed(75)
-    precalculated_data['h_z'] = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
+    precalculated_data['hz'] = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
 
     num_shots = 100000
 
     for n_spins in range(min_qubits, max_qubits+1):
 
-        print(f"Now running n_spins {n_spins}")
+            print(f"Now running n_spins {n_spins}")
 
-        qc = ham.HamiltonianSimulation(n_spins, k, t, method=1)
+            hx = precalculated_data['hx'][:n_spins]
+            hz = precalculated_data['hz'][:n_spins]
 
-        qc3 = ham.HamiltonianSimulation(n_spins, k, t, method=2)
+            qc = ham.HamiltonianSimulation(n_spins, k, t, hamiltonian="heisenburg", w=w, hx = hx, hz = hz)
 
-        transpiled_qc = transpile(qc, backend, optimization_level=0)
-        job = backend.run(transpiled_qc, shots=num_shots)
-        result = job.result()
-        counts = result.get_counts(qc)
+            qc3 = ham.HamiltonianSimulation(n_spins, k, t, hamiltonian="tfim", w=w, hx = hx, hz = hz)
 
-        transpiled_qc3 = transpile(qc3, backend, optimization_level=0)
-        job3 = backend.run(transpiled_qc3, shots=num_shots)
-        result3 = job3.result()
-        counts3 = result3.get_counts()
+            transpiled_qc = transpile(qc, backend, optimization_level=0)
+            job = backend.run(transpiled_qc, shots=num_shots)
+            result = job.result()
+            counts = result.get_counts(qc)
 
-        dist = {}
-        for key in counts.keys():
-            prob = counts[key] / num_shots
-            dist[key] = prob
+            transpiled_qc3 = transpile(qc3, backend, optimization_level=0)
+            job3 = backend.run(transpiled_qc3, shots=num_shots)
+            result3 = job3.result()
+            counts3 = result3.get_counts()
 
-        dist3 = {}
-        for key in counts3.keys():
-            prob = counts3[key] / num_shots
-            dist3[key] = prob
+            dist = {}
+            for key in counts.keys():
+                prob = counts[key] / num_shots
+                dist[key] = prob
 
-        # add dist values to precalculated data for use in fidelity calculation
-        precalculated_data[f"Heisenburg - Qubits{n_spins}"] = dist  
-        precalculated_data[f"Exact Heisenburg - Qubits{n_spins}"] = ham.HamiltonianSimulationExact(n_spins,t=t, method=1)
-        precalculated_data[f"TFIM - Qubits{n_spins}"] = dist3 
-        precalculated_data[f"Exact TFIM - Qubits{n_spins}"] = ham.HamiltonianSimulationExact(n_spins, t=t, method=2) 
+            dist3 = {}
+            for key in counts3.keys():
+                prob = counts3[key] / num_shots
+                dist3[key] = prob
+
+            # add dist values to precalculated data for use in fidelity calculation
+            precalculated_data[f"Heisenburg - Qubits{n_spins}"] = dist  
+            precalculated_data[f"Exact Heisenburg - Qubits{n_spins}"] = HamiltonianSimulationExact(n_spins, t=t, init_state = "checkerboard", hamiltonian="heisenburg", w=w, hx = hx, hz = hz)
+            precalculated_data[f"TFIM - Qubits{n_spins}"] = dist3 
+            precalculated_data[f"Exact TFIM - Qubits{n_spins}"] = HamiltonianSimulationExact(n_spins, t=t, init_state = "ghz", hamiltonian="tfim", w=w, hx = hx, hz = hz) 
+
     ham.precalculated_data = precalculated_data
 
 if __name__ == "__main__":
@@ -190,9 +357,9 @@ if __name__ == "__main__":
     time_range = [.2]
 
     # methods to go through, can be list of length 1 or 2 
-    methods = [1]
+    methods = [1,2]
 
-    compare_to_exact = [False, True] 
+    hamiltonians = ["heisenburg", "tfim"]
 
     # 2Q fidelity with depolarization model, should be length 2 for script to work. default, from Charlie Baldwin's graph, is .95 and .995. 
     f_range = [.95, .995, 1]
@@ -204,8 +371,8 @@ if __name__ == "__main__":
             # does this in a global manner by editing the hamiltonian_simulation_benchmark module
             set_precalculated_data(w=1, k=k, t=t, min_qubits = min_qubits, max_qubits = max_qubits)
 
-            for method in methods:
-                for is_exact in compare_to_exact: 
+            for hamiltonian in hamiltonians:
+                for method in methods: 
 
                     for f in f_range: 
 
@@ -229,7 +396,7 @@ if __name__ == "__main__":
                             else:
                                 exec_options = {"noise_model": noise}
 
-                            suffix = f"{k}_{t}_{method}_{is_exact}_{f}_{use_pytket}"
+                            suffix = f"{k}_{t}_{method}_{hamiltonian}_{f}_{use_pytket}"
 
                             # this produces images in ./__images/qasm_simulator, and we use those to make combined images
                             ham.run(
@@ -239,7 +406,7 @@ if __name__ == "__main__":
                                 exec_options=exec_options,
                             suffix=suffix,
                             use_XX_YY_ZZ_gates=False,
-                            compare_to_exact_results = is_exact, 
+                            hamiltonian = hamiltonian
                         )
 
 
@@ -248,11 +415,11 @@ if __name__ == "__main__":
                     for f in f_range:
                         for use_pytket in [False, True]: 
 
-                            suffix = f"{k}_{t}_{method}_{is_exact}_{f}_{use_pytket}"
+                            suffix = f"{k}_{t}_{method}_{hamiltonian}_{f}_{use_pytket}"
 
                             file_name = "__images/qasm_simulator/Hamiltonian-Simulation-vplot" + suffix + ".jpg" 
 
                             benchmark_result_images.append(Image.open(file_name))
 
-                    save_and_combine_images(benchmark_result_images, f"combined_vplots_method_{method}_{is_exact}_{k}_{t}_{f_range}" + ".jpg", method, f_range)
+                    save_and_combine_images(benchmark_result_images, f"combined_vplots_method_{method}_{hamiltonian}_{k}_{t}_{f_range}" + ".jpg", method, f_range)
 
