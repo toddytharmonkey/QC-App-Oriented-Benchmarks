@@ -61,7 +61,7 @@ def construct_TFIM_hamiltonian(n_spins: int) -> SparsePauliOp:
     """
     pauli_strings = []
     coefficients = []
-    g = 0.2  # Strength of the transverse field
+    g = 1  # Strength of the transverse field
 
     # Pauli spin vector product terms
     for i in range(n_spins):
@@ -354,7 +354,7 @@ if __name__ == "__main__":
 
     # selected times to go through, can be of any length 
     # a special note: do not choose t=1 when k=3.. that happens to produce gates with 0 rotation that are compiled out!
-    time_range = [.2]
+    time_range = [.25,.3,.35,.4]
 
     # methods to go through, can be list of length 1 or 2 
     methods = [1,2]
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     hamiltonians = ["heisenburg", "tfim"]
 
     # 2Q fidelity with depolarization model, should be length 2 for script to work. default, from Charlie Baldwin's graph, is .95 and .995. 
-    f_range = [.95, .995, 1]
+    f_range = [1]
 
     for k in k_range:
         for t in time_range:
@@ -394,7 +394,7 @@ if __name__ == "__main__":
                                     "noise_model": noise,
                                 }
                             else:
-                                exec_options = {"noise_model": noise}
+                                exec_options = {"noise_model": noise} 
 
                             suffix = f"{k}_{t}_{method}_{hamiltonian}_{f}_{use_pytket}"
 
@@ -402,11 +402,10 @@ if __name__ == "__main__":
                             ham.run(
                                 min_qubits=min_qubits,
                                 max_qubits=max_qubits,
+                                hamiltonian=hamiltonian,
                                 method=method,
                                 exec_options=exec_options,
-                            suffix=suffix,
-                            use_XX_YY_ZZ_gates=False,
-                            hamiltonian = hamiltonian
+                                suffix=suffix,
                         )
 
 

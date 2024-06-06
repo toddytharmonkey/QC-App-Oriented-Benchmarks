@@ -99,6 +99,7 @@ def HamiltonianSimulation(n_spins: int, K: int, t: float, hamiltonian: str, w: f
     Returns:
         QuantumCircuit: The constructed Qiskit circuit.
     """
+
     num_qubits = n_spins
     secret_int = f"{K}-{t}"
     
@@ -142,7 +143,7 @@ def HamiltonianSimulation(n_spins: int, K: int, t: float, hamiltonian: str, w: f
                         qc.append(xxyyzz_opt_gate(tau).to_instruction(), [qr[i], qr[(i + 1) % n_spins]])
             qc.barrier()
     elif hamiltonian == "tfim":
-        h = 0.2  # Strength of transverse field
+        h = 1   # Strength of transverse field
 
         init_state = "ghz"
 
@@ -450,4 +451,4 @@ def run(min_qubits: int = 2, max_qubits: int = 8, max_circuits: int = 3, skip_qu
     # Plot metrics for all circuit sizes
     metrics.plot_metrics(f"Benchmark Results - {benchmark_name} - Qiskit",suffix=suffix)
 
-if __name__ == '__main__': run()
+if __name__ == '__main__': run(hamiltonian="tfim", method=2)
