@@ -91,10 +91,10 @@ def HamiltonianSimulation(n_spins: int, K: int, t: float, hamiltonian: str, w: f
         n_spins (int): Number of spins (qubits).
         K (int): The Trotterization order.
         t (float): Duration of simulation.
-        hamiltonian (str): Which hamiltonian to run. "Heisenburg" by default but can also choose "TFIM". 
-        w (float): Strength of two-qubit interactions for heisenburg hamiltonian. 
-        hx (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
-        hz (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+        hamiltonian (str): Which hamiltonian to run. "heisenberg" by default but can also choose "TFIM". 
+        w (float): Strength of two-qubit interactions for heisenberg hamiltonian. 
+        hx (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
+        hz (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
 
     Returns:
         QuantumCircuit: The constructed Qiskit circuit.
@@ -114,7 +114,7 @@ def HamiltonianSimulation(n_spins: int, K: int, t: float, hamiltonian: str, w: f
 
     hamiltonian = hamiltonian.strip().lower()
 
-    if hamiltonian == "heisenburg": 
+    if hamiltonian == "heisenberg": 
 
         init_state = "checkerboard"
 
@@ -297,7 +297,7 @@ def analyze_and_print_result(qc: QuantumCircuit, result, num_qubits: int, type: 
         num_qubits (int): Number of qubits.
         type (str): Type of the simulation.
         num_shots (int): Number of shots.
-        hamiltonian (str): Which hamiltonian to run. "Heisenburg" by default but can also choose "TFIM". 
+        hamiltonian (str): Which hamiltonian to run. "heisenberg" by default but can also choose "TFIM". 
         method (int): Method for fidelity checking (1 for noiseless trotterized quantum, 2 for exact classical).
 
     Returns:
@@ -308,16 +308,16 @@ def analyze_and_print_result(qc: QuantumCircuit, result, num_qubits: int, type: 
     hamiltonian = hamiltonian.strip().lower()
 
     # Precalculated correct distribution
-    if method == 1 and hamiltonian == "heisenburg":
-        correct_dist = precalculated_data[f"Heisenburg - Qubits{num_qubits}"]
-    elif method == 2 and hamiltonian == "heisenburg":
-        correct_dist = precalculated_data[f"Exact Heisenburg - Qubits{num_qubits}"]
+    if method == 1 and hamiltonian == "heisenberg":
+        correct_dist = precalculated_data[f"heisenberg - Qubits{num_qubits}"]
+    elif method == 2 and hamiltonian == "heisenberg":
+        correct_dist = precalculated_data[f"Exact heisenberg - Qubits{num_qubits}"]
     elif method == 1 and hamiltonian == "tfim":
         correct_dist = precalculated_data[f"TFIM - Qubits{num_qubits}"]
     elif method == 2 and hamiltonian == "tfim":
         correct_dist = precalculated_data[f"Exact TFIM - Qubits{num_qubits}"]
     else:
-        raise ValueError("Method is not 1 or 2, or hamiltonian is not tfim or heisenburg.")
+        raise ValueError("Method is not 1 or 2, or hamiltonian is not tfim or heisenberg.")
 
     if verbose:
         print(f"Correct dist: {correct_dist}")
@@ -331,7 +331,7 @@ def analyze_and_print_result(qc: QuantumCircuit, result, num_qubits: int, type: 
 def run(min_qubits: int = 2, max_qubits: int = 8, max_circuits: int = 3, skip_qubits: int = 1, num_shots: int = 100,
         use_XX_YY_ZZ_gates: bool = False, backend_id: str = 'qasm_simulator', provider_backend = None,
         hub: str = "ibm-q", group: str = "open", project: str = "main", exec_options = None,
-        hamiltonian: str = "heisenburg", method: int = 1, 
+        hamiltonian: str = "heisenberg", method: int = 1, 
         context = None,
         suffix = ""): 
     """
@@ -350,7 +350,7 @@ def run(min_qubits: int = 2, max_qubits: int = 8, max_circuits: int = 3, skip_qu
         group (str): IBM Quantum group.
         project (str): IBM Quantum project.
         exec_options: Execution options.
-        hamiltonian (str): Which hamiltonian to run. "Heisenburg" by default but can also choose "TFIM". 
+        hamiltonian (str): Which hamiltonian to run. "heisenberg" by default but can also choose "TFIM". 
         method (int): Method for fidelity checking (1 for noiseless trotterized quantum, 2 for exact classical).
         context: Execution context.
         suffix: (str): DEV: If string isn't empty, create a file with this suffix at the end of it. 
@@ -451,4 +451,4 @@ def run(min_qubits: int = 2, max_qubits: int = 8, max_circuits: int = 3, skip_qu
     # Plot metrics for all circuit sizes
     metrics.plot_metrics(f"Benchmark Results - {benchmark_name} - Qiskit",suffix=suffix)
 
-if __name__ == '__main__': run(hamiltonian="tfim", method=2)
+if __name__ == '__main__': run()
