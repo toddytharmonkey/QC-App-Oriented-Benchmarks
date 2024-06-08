@@ -89,9 +89,9 @@ def construct_heisenberg_hamiltonian(n_spins: int, w: int, hx: list[float], hz: 
 
     Args:
         n_spins (int): Number of spins (qubits).
-        w (float): Strength of two-qubit interactions for heisenburg hamiltonian. 
-        hx (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
-        hz (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+        w (float): Strength of two-qubit interactions for heisenberg hamiltonian. 
+        hx (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
+        hz (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
 
     Returns:
         SparsePauliOp: The Hamiltonian represented as a sparse Pauli operator.
@@ -142,10 +142,10 @@ def construct_hamiltonian(n_spins: int, hamiltonian: str, w: float, hx : list[fl
 
     Args:
         n_spins (int): Number of spins (qubits).
-        hamiltonian (str): Which hamiltonian to run. "Heisenburg" by default but can also choose "TFIM". 
-        w (float): Strength of two-qubit interactions for heisenburg hamiltonian. 
-        hx (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
-        hz (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+        hamiltonian (str): Which hamiltonian to run. "heisenberg" by default but can also choose "TFIM". 
+        w (float): Strength of two-qubit interactions for heisenberg hamiltonian. 
+        hx (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
+        hz (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
 
     Returns:
         SparsePauliOp: The constructed Hamiltonian.
@@ -153,7 +153,7 @@ def construct_hamiltonian(n_spins: int, hamiltonian: str, w: float, hx : list[fl
 
     hamiltonian = hamiltonian.strip().lower()
 
-    if hamiltonian == "heisenburg":
+    if hamiltonian == "heisenberg":
         return construct_heisenberg_hamiltonian(n_spins, w, hx, hz)
     elif hamiltonian == "tfim":
         return construct_TFIM_hamiltonian(n_spins)
@@ -168,10 +168,10 @@ def HamiltonianSimulationExact(n_spins: int, t: float, init_state: str, hamilton
         n_spins (int): Number of spins (qubits).
         t (float): Duration of simulation.
         init_state (str): The chosen initial state. By default applies the checkerboard state, but can also be set to "ghz", the GHZ state.
-        hamiltonian (str): Which hamiltonian to run. "Heisenburg" by default but can also choose "TFIM". 
-        w (float): Strength of two-qubit interactions for heisenburg hamiltonian. 
-        hx (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
-        hz (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+        hamiltonian (str): Which hamiltonian to run. "heisenberg" by default but can also choose "TFIM". 
+        w (float): Strength of two-qubit interactions for heisenberg hamiltonian. 
+        hx (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
+        hz (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
 
     Returns:
         dict: The distribution of the evolved state.
@@ -192,157 +192,15 @@ def create_noise_model(fidelity):
         noise_model.add_all_qubit_quantum_error(depolarizing_err, ['cx'])  # Apply to CNOT gates
         return noise_model 
 
-from PIL import Image, ImageDraw, ImageFont
-
-def save_and_combine_images(images, output_filename, method, fidelities):
-    """
-    Given images that correspond to multiple configurations of using the pytket optimizer or not,
-    this function combines them into a grid with appropriate titles and labels.
-    """
-
-    num_fidelities = len(fidelities)
-    
-    if len(images) != 2 * num_fidelities:
-        raise ValueError(f"Input images list isn't of length {2 * num_fidelities}, it is instead length {len(images)}")
-
-    # Determine the maximum width and height of the input images
-    max_width = max(image.size[0] for image in images)
-    max_height = max(image.size[1] for image in images)
-
-    # Padding for labels
-    label_padding = 50
-    title_padding = 100
-
-    # Create a new image to accommodate the grid with extra space for text
-    combined_image = Image.new(
-        "RGB", 
-        (2 * max_width + label_padding, num_fidelities * max_height + title_padding + label_padding), 
-        "white"
-    )  # Adjusted space for labels and title
-
-    # Create drawing object
-    draw = ImageDraw.Draw(combined_image)
-
-    # Use a larger font size; download a .ttf file or use available system fonts
-    try:
-        title_font = ImageFont.truetype("arial.ttf", size=36)  # Larger font for title
-        label_font = ImageFont.truetype("arial.ttf", size=28)  # Larger font for labels
-    except IOError:
-        title_font = ImageFont.load_default()
-        label_font = ImageFont.load_default()
-
-    # Set text for title and labels
-    title = f"Hamiltonian Simulation Method {method}"
-    x_labels = ["No compilation", "Pytket gate compilation"]
-
-    # Calculate center for the title and add it
-    title_width = draw.textlength(title, font=title_font)
-    title_height = title_font.size
-    draw.text(((2 * max_width + label_padding - title_width) / 2, 10), title, fill="black", font=title_font)
-
-    # Paste the images and add axis labels
-    for index, image in enumerate(images):
-        x = (index % 2) * max_width + label_padding
-        y = (index // 2) * max_height + title_padding  # Adjust for title and label space
-
-        # Center the image in the cell
-        img_x = x + (max_width - image.size[0]) // 2
-        img_y = y + (max_height - image.size[1]) // 2
-        combined_image.paste(image, (img_x, img_y))
-
-    # Center x-axis labels below each column of images
-    for i in range(2):
-        x_label = x_labels[i]
-        label_width = draw.textlength(x_label, font=label_font)
-        label_height = label_font.size
-        draw.text(
-            (i * max_width + (max_width - label_width) / 2 + label_padding, 
-             num_fidelities * max_height + title_padding + 10), 
-            x_label, fill="black", font=label_font
-        )
-
-    # Y-axis fidelity labels
-    for i, fidelity in enumerate(fidelities):
-        y_label = f"Fidelity {fidelity}"
-        y_label_width = draw.textlength(y_label, font=label_font)
-        y_label_height = label_font.size
-        y_label_x = 10
-        y_label_y = i * max_height + title_padding + (max_height - y_label_height) / 2  # Centered in each row of images
-        draw.text((y_label_x, y_label_y), y_label, fill="black", font=label_font)
-
-    # Save the new image
-    combined_image.save(output_filename)
-
-
-
-def set_precalculated_data(w, k, t, min_qubits, max_qubits):
-
-    """
-    This code is copy/pasted from the Jupyter Notebook precalculated_Data.ipnyb.
-    """
-
-    backend = Aer.get_backend("qasm_simulator")
-
-    precalculated_data = {}
-
-# store parameters in precalculated data
-    precalculated_data["w"] = w
-    precalculated_data["k"] = k
-    precalculated_data["t"] = t
-
-# add parameter random values to precalculated data to ensure consistency
-    np.random.seed(26)
-    precalculated_data['hx'] = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
-    np.random.seed(75)
-    precalculated_data['hz'] = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
-
-    num_shots = 100000
-
-    for n_spins in range(min_qubits, max_qubits+1):
-
-            print(f"Now running n_spins {n_spins}")
-
-            hx = precalculated_data['hx'][:n_spins]
-            hz = precalculated_data['hz'][:n_spins]
-
-            qc = ham.HamiltonianSimulation(n_spins, k, t, hamiltonian="heisenburg", w=w, hx = hx, hz = hz)
-
-            qc3 = ham.HamiltonianSimulation(n_spins, k, t, hamiltonian="tfim", w=w, hx = hx, hz = hz)
-
-            transpiled_qc = transpile(qc, backend, optimization_level=0)
-            job = backend.run(transpiled_qc, shots=num_shots)
-            result = job.result()
-            counts = result.get_counts(qc)
-
-            transpiled_qc3 = transpile(qc3, backend, optimization_level=0)
-            job3 = backend.run(transpiled_qc3, shots=num_shots)
-            result3 = job3.result()
-            counts3 = result3.get_counts()
-
-            dist = {}
-            for key in counts.keys():
-                prob = counts[key] / num_shots
-                dist[key] = prob
-
-            dist3 = {}
-            for key in counts3.keys():
-                prob = counts3[key] / num_shots
-                dist3[key] = prob
-
-            # add dist values to precalculated data for use in fidelity calculation
-            precalculated_data[f"Heisenburg - Qubits{n_spins}"] = dist  
-            precalculated_data[f"Exact Heisenburg - Qubits{n_spins}"] = HamiltonianSimulationExact(n_spins, t=t, init_state = "checkerboard", hamiltonian="heisenburg", w=w, hx = hx, hz = hz)
-            precalculated_data[f"TFIM - Qubits{n_spins}"] = dist3 
-            precalculated_data[f"Exact TFIM - Qubits{n_spins}"] = HamiltonianSimulationExact(n_spins, t=t, init_state = "ghz", hamiltonian="tfim", w=w, hx = hx, hz = hz) 
-
-    ham.precalculated_data = precalculated_data
 
 import matplotlib.pyplot as plt 
 from qiskit.visualization import plot_distribution
-from qiskit.quantum_info import hellinger_fidelity
+from qiskit.quantum_info import hellinger_fidelity, hellinger_distance
 from qiskit import transpile
 from qiskit_aer import Aer
-def get_probability_distribution(circuit, shots=1024):
+from qiskit_aer.primitives import Sampler
+
+def get_probability_distribution(circuit, shots = None):
     """
     Generates the probability distribution of the outcomes for a given Qiskit circuit.
     
@@ -353,113 +211,186 @@ def get_probability_distribution(circuit, shots=1024):
     Returns:
     - result (dict): The probability distribution of the outcomes.
     """
-    # Use the Qiskit Aer simulator
-    simulator = Aer.get_backend('qasm_simulator')
 
-    # Transpile the circuit for the simulator
-    transpiled_circuit = transpile(circuit, simulator)
+    sampler = Sampler()
 
-    # Execute the circuit on the simulator
-    result = simulator.run(transpiled_circuit, backend=simulator, shots=shots).result()
+    # shots = None means the results will be exact? 
+    result = sampler.run(circuit, shots = shots).result()
 
-    # Get the counts of the outcomes
-    counts = result.get_counts()
+    dist = result.quasi_dists[0].binary_probabilities()
 
-    # Convert counts to probabilities
-    total_shots = sum(counts.values())
-    probabilities = {outcome: count / total_shots for outcome, count in counts.items()}
+    return dist 
 
-    return probabilities
+def get_init_state_distribution(n_spins, hamiltonian):
+
+    if hamiltonian.lower().strip() == "tfim":
+        init_state = "ghz"
+    else:
+        init_state = "checkerboard"
+
+    init_circ = ham.initial_state(n_spins, init_state)
+
+    init_circ.measure_all()
+
+    return get_probability_distribution(init_circ)
+
+def get_dist_at_timestep(step, K, max_time, hamiltonian, w, hx, hz): 
+
+
+    if step == 0:
+        return get_init_state_distribution(n_spins = 6, hamiltonian=hamiltonian)
+    else: 
+        return get_probability_distribution(ham.HamiltonianSimulation(n_spins = 6,K=step, t= step * (max_time/K), hamiltonian= hamiltonian, w=w, hx = hx, hz = hz ))
+
 if __name__ == "__main__":
+    
+    # produce three plots. 
+    #
+    # Plot #1: Hellinger distance from initial state using quantum trotterization steps.
+    # Plot #2: Hellinger distance from initial state using exact classical calculation (can use many more little time steps.) 
+    # Plot #3: Hellinger fidelity at each time step from the classical exact to the trotterized at each time step.  
+    np.random.seed(26)
+    hx = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
+    np.random.seed(75)
+    hz = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
+    # tfim_exact = HamiltonianSimulationExact(6, t, init_state = "ghz", hamiltonian= "tfim", w=1, hx = hx, hz = hz )
+    w = 1 
+    K = 10
 
-    backend = Aer.get_backend('aer_simulator')
+    hamiltonians_initstate_pairs = [("heisenberg","checkerboard"), ("tfim", "ghz")]
+    
+    # add switching bewteen different total times in the future? 
+    max_time = .4 
 
-    hellinger_list = []
-    first_exact = None
 
-    for t in np.linspace(0,1,100):
-        
-        print(t)
+    image_label_raw = f"maxtime {max_time}"
+    image_label = image_label_raw.replace(".","dot").replace(" ", "_")
+    # ------------------------------------------------------
+    # plot #1: 
 
-        np.random.seed(26)
-        hx = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
-        np.random.seed(75)
-        hz = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
-        tfim_exact = HamiltonianSimulationExact(6, t, init_state = "ghz", hamiltonian= "tfim", w=1, hx = hx, hz = hz )
-        tfim = ham.HamiltonianSimulation(6,5, t, hamiltonian= "tfim", w=1, hx = hx, hz = hz )
+    for hamiltonian, init_state in hamiltonians_initstate_pairs:
 
-        tfim_dict = get_probability_distribution(tfim)
+        hellingers = []
+        times = [] 
+        initial_distribution = None
 
-        #heisenburg_exact = HamiltonianSimulationExact(6, t, init_state = "checkerboard", hamiltonian= "heisenburg", w=1, hx = hx, hz = hz )
+        for k_i in range(K+1):
+            # note k_0 = 0 
+        #
+            dist = get_dist_at_timestep(k_i, K, max_time, hamiltonian, w, hx, hz)
 
-        # if t == 0:
-        #     first_exact = tfim_exact 
-        #     #plot_distribution(tfim_exact, sort='asc', filename= f"exact_tfim/{t}".replace(".",""))
-        dist = hellinger_fidelity(tfim_dict, tfim_exact)
-        hellinger_list.append(dist)
+            if k_i == 0:
+                first_dist = dist 
 
-    plt.plot([t for t in np.linspace(0,1,100)],hellinger_list)
-    plt.title("Hellinger fidelity for trotterized and exact distributions of TFIM vs time")
+            hellingers.append(hellinger_distance(first_dist, dist))
+            times.append(k_i * (max_time/K))
+
+
+        plt.plot(times,hellingers, marker='o')
+    plt.title("Hellinger distance from initial state VS time for quantum trotterization steps")
+    plt.legend(["trotterized heisenberg", "trotterized tfim"])
+    plt.xlabel("Time")
+    plt.ylabel("Hellinger distance")
+    plt.savefig(image_label + "plot1")
+    plt.close()
+
+    # --------------------------------------------------------------------
+    # plot #2 
+
+    for hamiltonian, init_state in hamiltonians_initstate_pairs:
+        hellinger_list = []
+        first_exact = None
+
+        for t in np.linspace(0,max_time,100):
+
+            print(t)
+
+            exact_dist = HamiltonianSimulationExact(6, t, init_state = init_state, hamiltonian= hamiltonian, w=1, hx = hx, hz = hz )
+
+            if t == 0:
+                first_exact = exact_dist 
+
+            dist = hellinger_distance(first_exact, exact_dist)
+            hellinger_list.append(dist)
+
+        plt.plot([t for t in np.linspace(0,max_time,100)],hellinger_list)
+    plt.title(image_label_raw + "\n" + "Hellinger distance from initial state for exact evolution VS time")
+    plt.legend(["exact heisenberg", "exact tfim"])
+    plt.xlabel("Time")
+    plt.ylabel("Hellinger distance")
+    plt.savefig(image_label + "plot2")
+    plt.close()
+
+
+    # ------------------------------------------------------
+    # plot #3: 
+
+    for hamiltonian, init_state in hamiltonians_initstate_pairs:
+        hellingers = []
+        times = [] 
+        initial_distribution = None
+
+        for k_i in range(K+1):
+            # note k_0 = 0 
+        #
+            dist = get_dist_at_timestep(k_i, K, max_time, hamiltonian, w, hx, hz)
+            
+            exact_dist = HamiltonianSimulationExact(6, t= k_i * (max_time/K), init_state = init_state, hamiltonian= "tfim", w=1, hx = hx, hz = hz )
+
+            hellingers.append(hellinger_fidelity(exact_dist, dist))
+            times.append(k_i * (max_time/K))
+
+        plt.plot(times,hellingers, marker='o')
+    plt.title(image_label_raw + "\n" + "Hellinger fidelity of exact vs trotterized states at discrete times")
+    plt.legend(["heisenberg", "tfim"])
     plt.xlabel("Time")
     plt.ylabel("Hellinger fidelity")
-    plt.show()
-        #plot_distribution(tfim_exact, sort='asc', title=f"hellinger fidelity: {dist}", filename= f"exact_tfim/{t}".replace(".",""))
+    plt.savefig(image_label + "plot3")
+    plt.close()
 
-    backend = Aer.get_backend('aer_simulator')
+    # ----------------------------------------------
+    # plot #4: 
 
-    hellinger_list = []
-    first_exact = None
+    for hamiltonian, init_state in hamiltonians_initstate_pairs:
 
-    for t in np.linspace(0,1,100):
-        
-        print(t)
+        hellingers = []
+        times = [] 
+        initial_distribution = None
 
-        np.random.seed(26)
-        hx = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
-        np.random.seed(75)
-        hz = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
-        tfim_exact = HamiltonianSimulationExact(6, t, init_state = "checkerboard", hamiltonian= "heisenburg", w=1, hx = hx, hz = hz )
-        tfim = ham.HamiltonianSimulation(6,5, t, hamiltonian= "heisenburg", w=1, hx = hx, hz = hz )
+        for k_i in range(K+1):
+            # note k_0 = 0 
+    
+            dist = get_dist_at_timestep(k_i, K, max_time, hamiltonian, w, hx, hz)
 
-        tfim_dict = get_probability_distribution(tfim)
+            if k_i == 0:
+                first_dist = dist 
 
-        #heisenburg_exact = HamiltonianSimulationExact(6, t, init_state = "checkerboard", hamiltonian= "heisenburg", w=1, hx = hx, hz = hz )
+            hellingers.append(hellinger_distance(first_dist, dist))
+            times.append(k_i * (max_time/K))
 
-        # if t == 0:
-        #     first_exact = tfim_exact 
-        #     #plot_distribution(tfim_exact, sort='asc', filename= f"exact_tfim/{t}".replace(".",""))
-        dist = hellinger_fidelity(tfim_dict, tfim_exact)
-        hellinger_list.append(dist)
 
-    plt.plot([t for t in np.linspace(0,1,100)],hellinger_list)
-    plt.title("Hellinger fidelity for trotterized and exact distributions of heisenberg vs time")
+        plt.plot(times,hellingers, marker='o')
+
+    for hamiltonian, init_state in hamiltonians_initstate_pairs:
+        hellinger_list = []
+        first_exact = None
+
+        for t in np.linspace(0,max_time,100):
+
+            print(t)
+
+            exact_dist = HamiltonianSimulationExact(6, t, init_state = init_state, hamiltonian= hamiltonian, w=1, hx = hx, hz = hz )
+
+            if t == 0:
+                first_exact = exact_dist 
+
+            dist = hellinger_distance(first_exact, exact_dist)
+            hellinger_list.append(dist)
+
+        plt.plot([t for t in np.linspace(0,max_time,100)],hellinger_list)
+    plt.title(image_label_raw + "\n" + "Hellinger distance from initial state VS time")
+    plt.legend(["trotterized heisenberg", "trotterized tfim", "exact heisenberg", "exact tfim"])
     plt.xlabel("Time")
-    plt.ylabel("Hellinger fidelity")
-    plt.show()
-    #
-    # hellinger_list = []
-    # first_exact = None
-    #
-    # for t in np.linspace(0,1,100):
-    #
-    #     print(t)
-    #
-    #     np.random.seed(26)
-    #     hx = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
-    #     np.random.seed(75)
-    #     hz = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
-    #     tfim_exact = HamiltonianSimulationExact(6, t, init_state = "checkerboard", hamiltonian= "heisenburg", w=1, hx = hx, hz = hz )
-    #     #heisenburg_exact = HamiltonianSimulationExact(6, t, init_state = "checkerboard", hamiltonian= "heisenburg", w=1, hx = hx, hz = hz )
-    #
-    #     if t == 0:
-    #         first_exact = tfim_exact 
-    #         #plot_distribution(tfim_exact, sort='asc', filename= f"exact_tfim/{t}".replace(".",""))
-    #     dist = hellinger_fidelity(first_exact, tfim_exact)
-    #     hellinger_list.append(dist)
-    #
-    # plt.plot([t for t in np.linspace(0,1,100)],hellinger_list)
-    # plt.title("Hellinger fidelity vs time for Heisenberg with the checkerboard initial state")
-    # plt.xlabel("Time")
-    # plt.ylabel("Hellinger fidelity")
-    # plt.show()
-    #     #plot_distribution(tfim_exact, sort='asc', title=f"hellinger fidelity: {dist}", filename= f"exact_tfim/{t}".replace(".",""))
+    plt.ylabel("Hellinger distance")
+    plt.savefig(image_label + "plot4")
+    plt.close()
