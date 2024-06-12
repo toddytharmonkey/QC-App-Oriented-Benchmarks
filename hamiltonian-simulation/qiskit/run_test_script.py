@@ -89,9 +89,9 @@ def construct_heisenberg_hamiltonian(n_spins: int, w: int, hx: list[float], hz: 
 
     Args:
         n_spins (int): Number of spins (qubits).
-        w (float): Strength of two-qubit interactions for heisenburg hamiltonian. 
-        hx (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
-        hz (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+        w (float): Strength of two-qubit interactions for heisenberg hamiltonian. 
+        hx (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
+        hz (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
 
     Returns:
         SparsePauliOp: The Hamiltonian represented as a sparse Pauli operator.
@@ -142,10 +142,10 @@ def construct_hamiltonian(n_spins: int, hamiltonian: str, w: float, hx : list[fl
 
     Args:
         n_spins (int): Number of spins (qubits).
-        hamiltonian (str): Which hamiltonian to run. "Heisenburg" by default but can also choose "TFIM". 
-        w (float): Strength of two-qubit interactions for heisenburg hamiltonian. 
-        hx (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
-        hz (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+        hamiltonian (str): Which hamiltonian to run. "heisenberg" by default but can also choose "TFIM". 
+        w (float): Strength of two-qubit interactions for heisenberg hamiltonian. 
+        hx (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
+        hz (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
 
     Returns:
         SparsePauliOp: The constructed Hamiltonian.
@@ -153,7 +153,7 @@ def construct_hamiltonian(n_spins: int, hamiltonian: str, w: float, hx : list[fl
 
     hamiltonian = hamiltonian.strip().lower()
 
-    if hamiltonian == "heisenburg":
+    if hamiltonian == "heisenberg":
         return construct_heisenberg_hamiltonian(n_spins, w, hx, hz)
     elif hamiltonian == "tfim":
         return construct_TFIM_hamiltonian(n_spins)
@@ -168,10 +168,10 @@ def HamiltonianSimulationExact(n_spins: int, t: float, init_state: str, hamilton
         n_spins (int): Number of spins (qubits).
         t (float): Duration of simulation.
         init_state (str): The chosen initial state. By default applies the checkerboard state, but can also be set to "ghz", the GHZ state.
-        hamiltonian (str): Which hamiltonian to run. "Heisenburg" by default but can also choose "TFIM". 
-        w (float): Strength of two-qubit interactions for heisenburg hamiltonian. 
-        hx (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
-        hz (list[float]): Strength of internal disorder parameter for heisenburg hamiltonian. 
+        hamiltonian (str): Which hamiltonian to run. "heisenberg" by default but can also choose "TFIM". 
+        w (float): Strength of two-qubit interactions for heisenberg hamiltonian. 
+        hx (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
+        hz (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
 
     Returns:
         dict: The distribution of the evolved state.
@@ -305,7 +305,7 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
             hx = precalculated_data['hx'][:n_spins]
             hz = precalculated_data['hz'][:n_spins]
 
-            qc = ham.HamiltonianSimulation(n_spins, k, t, hamiltonian="heisenburg", w=w, hx = hx, hz = hz)
+            qc = ham.HamiltonianSimulation(n_spins, k, t, hamiltonian="heisenberg", w=w, hx = hx, hz = hz)
 
             qc3 = ham.HamiltonianSimulation(n_spins, k, t, hamiltonian="tfim", w=w, hx = hx, hz = hz)
 
@@ -330,8 +330,8 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
                 dist3[key] = prob
 
             # add dist values to precalculated data for use in fidelity calculation
-            precalculated_data[f"Heisenburg - Qubits{n_spins}"] = dist  
-            precalculated_data[f"Exact Heisenburg - Qubits{n_spins}"] = HamiltonianSimulationExact(n_spins, t=t, init_state = "checkerboard", hamiltonian="heisenburg", w=w, hx = hx, hz = hz)
+            precalculated_data[f"Heisenberg - Qubits{n_spins}"] = dist  
+            precalculated_data[f"Exact Heisenberg - Qubits{n_spins}"] = HamiltonianSimulationExact(n_spins, t=t, init_state = "checkerboard", hamiltonian="heisenberg", w=w, hx = hx, hz = hz)
             precalculated_data[f"TFIM - Qubits{n_spins}"] = dist3 
             precalculated_data[f"Exact TFIM - Qubits{n_spins}"] = HamiltonianSimulationExact(n_spins, t=t, init_state = "ghz", hamiltonian="tfim", w=w, hx = hx, hz = hz) 
 
@@ -354,15 +354,15 @@ if __name__ == "__main__":
 
     # selected times to go through, can be of any length 
     # a special note: do not choose t=1 when k=3.. that happens to produce gates with 0 rotation that are compiled out!
-    time_range = [.25,.3,.35,.4]
+    time_range = [.2]
 
     # methods to go through, can be list of length 1 or 2 
     methods = [1,2]
 
-    hamiltonians = ["heisenburg", "tfim"]
+    hamiltonians = ["tfim"]
 
     # 2Q fidelity with depolarization model, should be length 2 for script to work. default, from Charlie Baldwin's graph, is .95 and .995. 
-    f_range = [1]
+    f_range = [.95, .995, 1]
 
     for k in k_range:
         for t in time_range:
