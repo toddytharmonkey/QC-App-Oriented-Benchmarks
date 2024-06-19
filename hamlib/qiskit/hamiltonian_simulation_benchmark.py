@@ -18,13 +18,18 @@ import sys
 import time
 
 import numpy as np
+from qiskit.circuit import QuantumCircuit
 
 sys.path[1:1] = ["_common", "_common/qiskit"]
 sys.path[1:1] = ["../../_common", "../../_common/qiskit"]
 import execute as ex
 import metrics as metrics
 
-from hamiltonian_simulation_kernel import HamiltonianSimulation, kernel_draw
+from hamiltonian_simulation_kernel import HamiltonianSimulation, kernel_draw, create_circuit
+# from hamlib_test import create_circuit, HamiltonianSimulationExact
+from qiskit_algorithms import TimeEvolutionProblem, SciPyRealEvolver
+
+min_qubits = 0
 
 
 # Benchmark Name
@@ -46,7 +51,7 @@ precalculated_data = json.loads(data)
 
 #def analyze_and_print_result(qc: QuantumCircuit, result, num_qubits: int,
 def analyze_and_print_result(qc, result, num_qubits: int,
-            type: str, num_shots: int, hamiltonian: str, method: int, random_pauli_flag: bool) -> tuple:
+            type: str, num_shots: int, hamiltonian: str, method: int) -> tuple:
     """
     Analyze and print the measured results. Compute the quality of the result based on operator expectation for each state.
 
@@ -56,13 +61,14 @@ def analyze_and_print_result(qc, result, num_qubits: int,
         num_qubits (int): Number of qubits.
         type (str): Type of the simulation.
         num_shots (int): Number of shots.
-        hamiltonian (str): Which hamiltonian to run. "heisenberg" by default but can also choose "TFIM". 
+        hamiltonian (str): Which hamiltonian to run. "heisenberg" by default but can also choose "TFIM" or "hamlib". 
         method (int): Method for fidelity checking (1 for noiseless trotterized quantum, 2 for exact classical), 3 for mirror circuit.
 
     Returns:
         tuple: Counts and fidelity.
     """
     counts = result.get_counts(qc)
+
     if verbose:
         print(f"For type {type} measured: {counts}")
 
@@ -77,17 +83,12 @@ def analyze_and_print_result(qc, result, num_qubits: int,
         correct_dist = precalculated_data[f"TFIM - Qubits{num_qubits}"]
     elif method == 2 and hamiltonian == "tfim":
         correct_dist = precalculated_data[f"Exact TFIM - Qubits{num_qubits}"]
+    elif method == 2 and hamiltonian == "hamlib":
+        correct_dist = HamiltonianSimulationExact(num_qubits)
     elif method == 3 and hamiltonian == "heisenberg":
-        if random_pauli_flag == True:
-            correct_dist = {''.join(['0' if i % 2 == 0 else '1' for i in range(num_qubits)]) if num_qubits % 2 != 0 else ''.join(['1' if i % 2 == 0 else '0' for i in range(num_qubits)]):num_shots}
-        else:
-            correct_dist = {''.join(['1' if i % 2 == 0 else '0' for i in range(num_qubits)]) if num_qubits % 2 != 0 else ''.join(['0' if i % 2 == 0 else '1' for i in range(num_qubits)]):num_shots}    
+        correct_dist = {''.join(['1' if i % 2 == 0 else '0' for i in range(num_qubits)]) if num_qubits % 2 != 0 else ''.join(['0' if i % 2 == 0 else '1' for i in range(num_qubits)]):num_shots}
     elif method == 3 and hamiltonian == "tfim":
-        if random_pauli_flag == True:
-            correct_dist = {'0' * num_qubits: num_shots // 2 + num_shots % 2, '1' * num_qubits: num_shots // 2}
-        else:
-            correct_dist = {'0' * num_qubits: num_shots // 2 + num_shots % 2, '1' * num_qubits: num_shots // 2}
-
+        correct_dist = {'0' * num_qubits: num_shots // 2 + num_shots % 2, '1' * num_qubits: num_shots // 2}
     else:
         raise ValueError("Method is not 1 or 2 or 3, or hamiltonian is not tfim or heisenberg.")
 
@@ -96,15 +97,66 @@ def analyze_and_print_result(qc, result, num_qubits: int,
 
     # Use polarization fidelity rescaling
     fidelity = metrics.polarization_fidelity(counts, correct_dist)
+    print (counts, correct_dist)
     return counts, fidelity
 
+def initial_state(n_spins: int, initial_state: str = "checker") -> QuantumCircuit:
+    """
+    Initialize the quantum state.
+
+    Dev note: This function is copy/pasted from HamiltonianSimulation.
+    
+    Args:
+        n_spins (int): Number of spins (qubits).
+        initial_state (str): The chosen initial state. By default applies the checkerboard state, but can also be set to "ghz", the GHZ state.
+
+    Returns:
+        QuantumCircuit: The initialized quantum circuit.
+    """
+    qc = QuantumCircuit(n_spins)
+
+    if initial_state.strip().lower() == "checkerboard" or initial_state.strip().lower() == "neele":
+        # Checkerboard state, or "Neele" state
+        for k in range(0, n_spins, 2):
+            qc.x([k])
+    elif initial_state.strip().lower() == "ghz":
+        # GHZ state: 1/sqrt(2) (|00...> + |11...>)
+        qc.h(0)
+        for k in range(1, n_spins):
+            qc.cx(k-1, k)
+
+    return qc
+
+# def HamiltonianSimulationExact(n_spins: int, t: float, init_state: str, w: float, hx: list[float], hz: list[float]) -> dict:
+def HamiltonianSimulationExact(n_spins: int):
+    """
+    Perform exact Hamiltonian simulation using classical matrix evolution.
+
+    Args:
+        n_spins (int): Number of spins (qubits).
+        t (float): Duration of simulation.
+        init_state (str): The chosen initial state. By default applies the checkerboard state, but can also be set to "ghz", the GHZ state.
+        hamiltonian (str): Which hamiltonian to run. "Heisenberg" by default but can also choose "TFIM". 
+        w (float): Strength of two-qubit interactions for heisenberg hamiltonian. 
+        hx (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
+        hz (list[float]): Strength of internal disorder parameter for heisenberg hamiltonian. 
+
+    Returns:
+        dict: The distribution of the evolved state.
+    """
+    _, hamiltonian_sparse = create_circuit()
+    time_problem = TimeEvolutionProblem(hamiltonian_sparse, 0.2, initial_state=initial_state(n_spins, 'checkerboard'))
+    # time_problem = TimeEvolutionProblem(hamiltonian_sparse, 0.2)
+    result = SciPyRealEvolver(num_timesteps=1).evolve(time_problem)
+    print (result)
+    return result.evolved_state.probabilities_dict()
 
 ############### Benchmark Loop
 
 def run(min_qubits: int = 2, max_qubits: int = 8, max_circuits: int = 3,
         skip_qubits: int = 1, num_shots: int = 100,
-        hamiltonian: str = "heisenberg", method: int = 1,
-        use_XX_YY_ZZ_gates: bool = False, random_pauli_flag = True,
+        hamiltonian: str = "hamlib", method: int = 2,
+        use_XX_YY_ZZ_gates: bool = False,
         backend_id: str = None, provider_backend = None,
         hub: str = "ibm-q", group: str = "open", project: str = "main", exec_options = None,
         context = None, api = None):
@@ -154,7 +206,7 @@ def run(min_qubits: int = 2, max_qubits: int = 8, max_circuits: int = 3,
     def execution_handler(qc, result, num_qubits, type, num_shots):
         # Determine fidelity of result set
         num_qubits = int(num_qubits)
-        counts, expectation_a = analyze_and_print_result(qc, result, num_qubits, type, num_shots, hamiltonian, method, random_pauli_flag)
+        counts, expectation_a = analyze_and_print_result(qc, result, num_qubits, type, num_shots, hamiltonian, method)
         metrics.store_metric(num_qubits, type, 'fidelity', expectation_a)
 
     # Initialize execution module using the execution result handler above and specified backend_id
@@ -195,7 +247,9 @@ def run(min_qubits: int = 2, max_qubits: int = 8, max_circuits: int = 3,
                     hamiltonian=hamiltonian,
                     w=w, hx = hx, hz = hz, 
                     use_XX_YY_ZZ_gates = use_XX_YY_ZZ_gates,
-                    method = method, random_pauli_flag = random_pauli_flag)
+                    method = method)
+
+            # qc, _ = create_circuit()
                     
             metrics.store_metric(num_qubits, circuit_id, 'create_time', time.time() - ts)
             qc.draw()
@@ -212,7 +266,7 @@ def run(min_qubits: int = 2, max_qubits: int = 8, max_circuits: int = 3,
     ##########
     
     # draw a sample circuit
-    kernel_draw(hamiltonian, use_XX_YY_ZZ_gates, method, random_pauli_flag)
+    kernel_draw(hamiltonian, use_XX_YY_ZZ_gates, method)
        
     # Plot metrics for all circuit sizes
     metrics.plot_metrics(f"Benchmark Results - {benchmark_name} - Qiskit")
@@ -239,7 +293,6 @@ def get_args():
     #parser.add_argument("--theta", default=0.0, help="Input Theta Value", type=float)
     parser.add_argument("--nonoise", "-non", action="store_true", help="Use Noiseless Simulator")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose")
-    parser.add_argument("--random_pauli_flag", "-ranp", action="store_true", help="random pauli flag")
     return parser.parse_args()
  
 # if main, execute method
@@ -262,8 +315,7 @@ if __name__ == '__main__':
         num_shots=args.num_shots,
         hamiltonian=args.hamiltonian,
         method=args.method,
-        random_pauli_flag=args.random_pauli_flag,
-        use_XX_YY_ZZ_gates =args.use_XX_YY_ZZ_gates,
+        use_XX_YY_ZZ_gates = args.use_XX_YY_ZZ_gates,
         #theta=args.theta,
         backend_id=args.backend_id,
         exec_options = {"noise_model" : None} if args.nonoise else {},
