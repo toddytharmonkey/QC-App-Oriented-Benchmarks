@@ -330,7 +330,7 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
                 dist3[key] = prob
 
             # add dist values to precalculated data for use in fidelity calculation
-            precalculated_data[f"heisenberg - Qubits{n_spins}"] = dist  
+            precalculated_data[f"Heisenberg - Qubits{n_spins}"] = dist  
             precalculated_data[f"Exact Heisenberg - Qubits{n_spins}"] = HamiltonianSimulationExact(n_spins, t=t, init_state = "checkerboard", hamiltonian="heisenberg", w=w, hx = hx, hz = hz)
             precalculated_data[f"TFIM - Qubits{n_spins}"] = dist3 
             precalculated_data[f"Exact TFIM - Qubits{n_spins}"] = HamiltonianSimulationExact(n_spins, t=t, init_state = "ghz", hamiltonian="tfim", w=w, hx = hx, hz = hz) 
@@ -345,19 +345,34 @@ if __name__ == "__main__":
     Choose max_qubits that are relatively small, since an expensive calculate to recalculate the "precalculated" distribution will be done for all the different settings in k_range and time_range. 
     """
 
+    min_qubits=2
+    max_qubits=12
+    skip_qubits=1
+    max_circuits=3
+    num_shots=1000
+    backend_id = "qasm_simulator"
+
+
+    backend_id="qasm_simulator"
+#backend_id="statevector_simulator"
+
+    hub="ibm-q"; group="open"; project="main"
+    provider_backend = None
+    exec_options = {}
     #set to true when the executor fails to launch
     ex.verbose = False
+    metrics.show_plot_images = False
 
     # min and max qubits. on my laptop, 12 is the maximum amount 
     min_qubits = 2  
-    max_qubits = 8 
+    max_qubits = 12 
 
     # selected trotter steps to go through, can be any length 
-    k_range = [3]
+    k_range = [5]
 
     # selected times to go through, can be of any length 
     # a special note: do not choose t=1 when k=3.. that happens to produce gates with 0 rotation that are compiled out!
-    time_range = [.01]
+    time_range = [.2]
 
     # methods to go through, can be list of length 1 or 2 
     methods = [1]
@@ -372,43 +387,83 @@ if __name__ == "__main__":
 
             # overwrite the precalculated_data inside of hamiltonian_simulation_benchmark for the settings desired 
             # does this in a global manner by editing the hamiltonian_simulation_benchmark module
-            set_precalculated_data(w=10, k=k, t=t, min_qubits = min_qubits, max_qubits = max_qubits)
+            set_precalculated_data(w=1, k=k, t=t, min_qubits = min_qubits, max_qubits = max_qubits)
 
             for hamiltonian in hamiltonians:
                 for method in methods: 
 
                     for f in f_range: 
 
-                        for use_pytket in [False, True]:
-
-                            noise = create_noise_model(f)
-
-
-                            suffix = f"{k}_{t}_{method}_{hamiltonian}_{f}_{use_pytket}"
-
-                            # this produces images in ./__images/qasm_simulator, and we use those to make combined images
-                            #
-                            exec_options ={}
-                            ham.run(
-                                min_qubits=min_qubits,
-                                max_qubits=max_qubits,
-                                hamiltonian=hamiltonian,
-                                method=method,
-                                exec_options=exec_options,
-                                suffix=suffix,
-                        )
+                        exec_options ={}
+                        ham.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+                max_circuits=max_circuits, num_shots=num_shots,
+                method=1,
+                backend_id=backend_id, provider_backend=provider_backend,
+                hub=hub, group=group, project=project, exec_options=exec_options)
 
 
-                    benchmark_result_images = []
 
-                    for f in f_range:
-                        for use_pytket in [False, True]: 
+    sys.path.insert(1, "../../bernstein-vazirani/qiskit")
+    import bv_benchmark
+    bv_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+                max_circuits=max_circuits, num_shots=num_shots,
+                method=1,
+                backend_id=backend_id, provider_backend=provider_backend,
+                hub=hub, group=group, project=project, exec_options=exec_options)
 
-                            suffix = f"{k}_{t}_{method}_{hamiltonian}_{f}_{use_pytket}"
+    import sys
+    sys.path.insert(1, "../../deutsch-jozsa/qiskit")
+    import dj_benchmark
+    dj_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+                    max_circuits=max_circuits, num_shots=num_shots,
+                    backend_id=backend_id, provider_backend=provider_backend,
+                    hub=hub, group=group, project=project, exec_options=exec_options)
+    import sys
+    sys.path.insert(1, "../../hidden-shift/qiskit")
+    import hs_benchmark
+    hs_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits,
+                max_circuits=max_circuits, num_shots=num_shots,
+                backend_id=backend_id, provider_backend=provider_backend,
+                hub=hub, group=group, project=project, exec_options=exec_options)
 
-                            file_name = "__images/qasm_simulator/Hamiltonian-Simulation-vplot" + suffix + ".jpg" 
 
-                            benchmark_result_images.append(Image.open(file_name))
+    import sys
+    sys.path.insert(1, "../../quantum-fourier-transform/qiskit")
+    import qft_benchmark
+    qft_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+                max_circuits=max_circuits, num_shots=num_shots,
+                method=1,
+                backend_id=backend_id, provider_backend=provider_backend,
+                hub=hub, group=group, project=project, exec_options=exec_options)
 
-                    save_and_combine_images(benchmark_result_images, f"combined_vplots_method_{method}_{hamiltonian}_{k}_{t}_{f_range}" + ".jpg", method, f_range)
+    import sys
+    sys.path.insert(1, "../../quantum-fourier-transform/qiskit")
+    import qft_benchmark
+    qft_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+                max_circuits=max_circuits, num_shots=num_shots,
+                method=2,
+                backend_id=backend_id, provider_backend=provider_backend,
+                hub=hub, group=group, project=project, exec_options=exec_options)
+
+
+    import sys
+    sys.path.insert(1, "../../phase-estimation/qiskit")
+    import pe_benchmark
+    pe_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+                    max_circuits=max_circuits, num_shots=num_shots,
+                    backend_id=backend_id, provider_backend=provider_backend,
+                    hub=hub, group=group, project=project, exec_options=exec_options)
+
+    import sys
+    sys.path.insert(1, "../../grovers/qiskit")
+    import grovers_benchmark
+    grovers_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+                max_circuits=max_circuits, num_shots=num_shots,
+                backend_id=backend_id, provider_backend=provider_backend,
+                hub=hub, group=group, project=project, exec_options=exec_options)
+
+    metrics.show_plot_images = True
+
+    metrics.plot_all_app_metrics("qasm_simulator", do_all_plots=False, include_apps=None)
+
 

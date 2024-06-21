@@ -76,7 +76,7 @@ data_suffix = ""
 save_plot_images = True
 
 # Option to show plot images. Useful if it is desired to not show plots while running scripts
-show_plot_images = False
+show_plot_images = True
 
 # Option to show elapsed times in the metrics plots
 show_elapsed_times = True
@@ -114,7 +114,7 @@ QV = 0
 AQ = 12
 aq_cutoff = 0.368   # below this circuits not considered successful
 
-aq_mode = 1         # 0 - use default plot behavior, 1 - use AQ modified plots
+aq_mode = 0         # 0 - use default plot behavior, 1 - use AQ modified plots
 
 # average transpile factor between base QV depth and our depth based on results from QV notebook
 QV_transpile_factor = 12.7     
@@ -1371,7 +1371,7 @@ def plot_metrics (suptitle="Circuit Width (Number of Qubits)", transform_qubit_g
         
         # save plot image to file
         if save_plot_images:
-            save_plot_image(plt, f"{appname}-vplot" + suffix, backend_id) 
+            save_plot_image(plt, f"{appname}-vplot", backend_id) 
         
         #display plot
         if show_plot_images:
