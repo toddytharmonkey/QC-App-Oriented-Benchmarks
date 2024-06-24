@@ -292,9 +292,9 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
 
 # add parameter random values to precalculated data to ensure consistency
     np.random.seed(26)
-    precalculated_data['hx'] = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
+    precalculated_data['h_x'] = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
     np.random.seed(75)
-    precalculated_data['hz'] = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
+    precalculated_data['h_z'] = list(2 * np.random.random(20) - 1) # random numbers between [-1, 1]
 
     num_shots = 100000
 
@@ -302,10 +302,10 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
 
             print(f"Now running n_spins {n_spins}")
 
-            hx = precalculated_data['hx'][:n_spins]
-            hz = precalculated_data['hz'][:n_spins]
+            hx = precalculated_data['h_x'][:n_spins]
+            hz = precalculated_data['h_z'][:n_spins]
 
-            qc = ham.HamiltonianSimulation(n_spins, k, t, w=w, hx = hx, hz = hz)
+            qc = ham.HamiltonianSimulation(n_spins, k, t, w=w, h_x = hx, h_z = hz)
 
 
             transpiled_qc = transpile(qc, backend, optimization_level=0)
@@ -319,7 +319,7 @@ def set_precalculated_data(w, k, t, min_qubits, max_qubits):
                 dist[key] = prob
 
             # add dist values to precalculated data for use in fidelity calculation
-            precalculated_data[f"Qubits{n_spins}"] = dist  
+            precalculated_data[f"Qubits - {n_spins}"] = dist  
 
     ham.precalculated_data = precalculated_data
 
@@ -348,15 +348,15 @@ if __name__ == "__main__":
     # metrics.show_plot_images = False
 
     # selected trotter steps to go through, can be any length 
-    k_range = [5]
+    k_range = [3]
 
     # selected times to go through, can be of any length 
     # a special note: do not choose t=1 when k=3.. that happens to produce gates with 0 rotation that are compiled out!
-    time_range = [.2]
+    time_range = [.01]
 
     # methods to go through, can be list of length 1 or 2 
 
-    w=1
+    w=10
 
     # 2Q fidelity with depolarization model, should be length 2 for script to work. default, from Charlie Baldwin's graph, is .95 and .995. 
     f_range = [1]
