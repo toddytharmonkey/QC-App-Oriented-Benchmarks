@@ -348,24 +348,18 @@ if __name__ == "__main__":
     min_qubits=2
     max_qubits=12
     skip_qubits=1
-    max_circuits=3
+    max_circuits=10
     num_shots=1000
-    backend_id = "qasm_simulator"
 
 
     backend_id="qasm_simulator"
-#backend_id="statevector_simulator"
 
     hub="ibm-q"; group="open"; project="main"
     provider_backend = None
     exec_options = {}
     #set to true when the executor fails to launch
     ex.verbose = False
-    metrics.show_plot_images = False
-
-    # min and max qubits. on my laptop, 12 is the maximum amount 
-    min_qubits = 2  
-    max_qubits = 12 
+    # metrics.show_plot_images = False
 
     # selected trotter steps to go through, can be any length 
     k_range = [5]
@@ -377,6 +371,8 @@ if __name__ == "__main__":
     # methods to go through, can be list of length 1 or 2 
     methods = [1]
 
+    w=1
+
     hamiltonians = ["heisenberg"]
 
     # 2Q fidelity with depolarization model, should be length 2 for script to work. default, from Charlie Baldwin's graph, is .95 and .995. 
@@ -387,7 +383,7 @@ if __name__ == "__main__":
 
             # overwrite the precalculated_data inside of hamiltonian_simulation_benchmark for the settings desired 
             # does this in a global manner by editing the hamiltonian_simulation_benchmark module
-            set_precalculated_data(w=1, k=k, t=t, min_qubits = min_qubits, max_qubits = max_qubits)
+            set_precalculated_data(w=w, k=k, t=t, min_qubits = min_qubits, max_qubits = max_qubits)
 
             for hamiltonian in hamiltonians:
                 for method in methods: 
@@ -402,68 +398,68 @@ if __name__ == "__main__":
                 hub=hub, group=group, project=project, exec_options=exec_options)
 
 
-
-    sys.path.insert(1, "../../bernstein-vazirani/qiskit")
-    import bv_benchmark
-    bv_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
-                max_circuits=max_circuits, num_shots=num_shots,
-                method=1,
-                backend_id=backend_id, provider_backend=provider_backend,
-                hub=hub, group=group, project=project, exec_options=exec_options)
-
-    import sys
-    sys.path.insert(1, "../../deutsch-jozsa/qiskit")
-    import dj_benchmark
-    dj_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
-                    max_circuits=max_circuits, num_shots=num_shots,
-                    backend_id=backend_id, provider_backend=provider_backend,
-                    hub=hub, group=group, project=project, exec_options=exec_options)
-    import sys
-    sys.path.insert(1, "../../hidden-shift/qiskit")
-    import hs_benchmark
-    hs_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits,
-                max_circuits=max_circuits, num_shots=num_shots,
-                backend_id=backend_id, provider_backend=provider_backend,
-                hub=hub, group=group, project=project, exec_options=exec_options)
-
-
-    import sys
-    sys.path.insert(1, "../../quantum-fourier-transform/qiskit")
-    import qft_benchmark
-    qft_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
-                max_circuits=max_circuits, num_shots=num_shots,
-                method=1,
-                backend_id=backend_id, provider_backend=provider_backend,
-                hub=hub, group=group, project=project, exec_options=exec_options)
-
-    import sys
-    sys.path.insert(1, "../../quantum-fourier-transform/qiskit")
-    import qft_benchmark
-    qft_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
-                max_circuits=max_circuits, num_shots=num_shots,
-                method=2,
-                backend_id=backend_id, provider_backend=provider_backend,
-                hub=hub, group=group, project=project, exec_options=exec_options)
-
-
-    import sys
-    sys.path.insert(1, "../../phase-estimation/qiskit")
-    import pe_benchmark
-    pe_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
-                    max_circuits=max_circuits, num_shots=num_shots,
-                    backend_id=backend_id, provider_backend=provider_backend,
-                    hub=hub, group=group, project=project, exec_options=exec_options)
-
-    import sys
-    sys.path.insert(1, "../../grovers/qiskit")
-    import grovers_benchmark
-    grovers_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
-                max_circuits=max_circuits, num_shots=num_shots,
-                backend_id=backend_id, provider_backend=provider_backend,
-                hub=hub, group=group, project=project, exec_options=exec_options)
-
-    metrics.show_plot_images = True
-
-    metrics.plot_all_app_metrics("qasm_simulator", do_all_plots=False, include_apps=None)
+    #uncomment if you wish to graph with the other benchmarks
+    # sys.path.insert(1, "../../bernstein-vazirani/qiskit")
+    # import bv_benchmark
+    # bv_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+    #             max_circuits=max_circuits, num_shots=num_shots,
+    #             method=1,
+    #             backend_id=backend_id, provider_backend=provider_backend,
+    #             hub=hub, group=group, project=project, exec_options=exec_options)
+    #
+    # import sys
+    # sys.path.insert(1, "../../deutsch-jozsa/qiskit")
+    # import dj_benchmark
+    # dj_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+    #                 max_circuits=max_circuits, num_shots=num_shots,
+    #                 backend_id=backend_id, provider_backend=provider_backend,
+    #                 hub=hub, group=group, project=project, exec_options=exec_options)
+    # import sys
+    # sys.path.insert(1, "../../hidden-shift/qiskit")
+    # import hs_benchmark
+    # hs_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits,
+    #             max_circuits=max_circuits, num_shots=num_shots,
+    #             backend_id=backend_id, provider_backend=provider_backend,
+    #             hub=hub, group=group, project=project, exec_options=exec_options)
+    #
+    #
+    # import sys
+    # sys.path.insert(1, "../../quantum-fourier-transform/qiskit")
+    # import qft_benchmark
+    # qft_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+    #             max_circuits=max_circuits, num_shots=num_shots,
+    #             method=1,
+    #             backend_id=backend_id, provider_backend=provider_backend,
+    #             hub=hub, group=group, project=project, exec_options=exec_options)
+    #
+    # import sys
+    # sys.path.insert(1, "../../quantum-fourier-transform/qiskit")
+    # import qft_benchmark
+    # qft_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+    #             max_circuits=max_circuits, num_shots=num_shots,
+    #             method=2,
+    #             backend_id=backend_id, provider_backend=provider_backend,
+    #             hub=hub, group=group, project=project, exec_options=exec_options)
+    #
+    #
+    # import sys
+    # sys.path.insert(1, "../../phase-estimation/qiskit")
+    # import pe_benchmark
+    # pe_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+    #                 max_circuits=max_circuits, num_shots=num_shots,
+    #                 backend_id=backend_id, provider_backend=provider_backend,
+    #                 hub=hub, group=group, project=project, exec_options=exec_options)
+    #
+    # import sys
+    # sys.path.insert(1, "../../grovers/qiskit")
+    # import grovers_benchmark
+    # grovers_benchmark.run(min_qubits=min_qubits, max_qubits=max_qubits, skip_qubits=skip_qubits,
+    #             max_circuits=max_circuits, num_shots=num_shots,
+    #             backend_id=backend_id, provider_backend=provider_backend,
+    #             hub=hub, group=group, project=project, exec_options=exec_options)
+    #
+    # metrics.show_plot_images = True
+    #
+    # metrics.plot_all_app_metrics("qasm_simulator", do_all_plots=False, include_apps=None)
 
 
