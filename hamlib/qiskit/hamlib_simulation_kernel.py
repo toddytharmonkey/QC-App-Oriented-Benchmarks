@@ -228,7 +228,7 @@ def create_circuit(
     method: int = 1,
     init_state: str = None,
     random_pauli_flag: bool = False,
-    random_init_state: bool = False 
+    random_init_flag: bool = False 
 ):
     """
     Create a quantum circuit based on the Hamiltonian data from an HDF5 file.
@@ -310,16 +310,16 @@ def create_circuit(
                 from pygsti_mirror import convert_to_mirror_circuit
                
                 # if random init flag state is set, then discard the inital state input and use a completely (harr) random one
-                if random_init_state:
+                if random_init_flag:
                     circuit, bitstring = convert_to_mirror_circuit(circuit_without_initial_state, random_pauli = True, init_state=None)
                 else: 
                     init_state = initial_state(n_spins, init_state)
                     circuit, bitstring = convert_to_mirror_circuit(circuit_without_initial_state, random_pauli = True, init_state=init_state)
 
         # convert_to_mirror_circuit adds its own measurement gates    
-        if not random_pauli_flag:
+        if not (random_pauli_flag and method == 3):
             circuit.measure_all()
-        
+    
         return circuit, bitstring, ham_op, evo
 
     else:
@@ -367,7 +367,7 @@ def HamiltonianSimulation(
             init_state = None,
             method: int = 1,
             random_pauli_flag = False,
-            random_init_state = False
+            random_init_flag = False
         ) -> QuantumCircuit:
     """
     Construct a Qiskit circuit for Hamiltonian simulation.
@@ -392,7 +392,7 @@ def HamiltonianSimulation(
     qc = QuantumCircuit(qr, cr, name=f"hamsim-{num_qubits}-{secret_int}")
 
     hamiltonian = hamiltonian.strip().lower()
-
+    # create the quantum circuit for this Hamiltonian, along with the correct pauli bstring, the operator and trotter evolution circuit
     qc, bitstring, ham_op, evo = create_circuit(
         n_spins=n_spins,
         time=t,
@@ -400,7 +400,7 @@ def HamiltonianSimulation(
         init_state=init_state,
         num_trotter_steps=K,
         random_pauli_flag=random_pauli_flag,
-        random_init_state=random_init_state
+        random_init_flag=random_init_flag
         )
 
     # Save smaller circuit example for display
@@ -414,6 +414,7 @@ def HamiltonianSimulation(
     # Collapse the sub-circuits used in this benchmark (for Qiskit)
     qc2 = qc.decompose().decompose()
 
+    # return both the circuit created, the bitstring, and the Hamiltonian operator
     # if random_pauli_flag is false or method isn't 3, bitstring will be None
     return qc2, bitstring, ham_op
         
@@ -453,4 +454,3 @@ def kernel_draw(hamiltonian: str = "hamlib", method: int = 1):
         print("  ... circuit too large!")
 
 
-    
