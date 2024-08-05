@@ -21,12 +21,14 @@ from qiskit import transpile
 from qiskit.transpiler.passes import RemoveFinalMeasurements
 
 
-def construct_hamlib_circuits(num_qubits, hamiltonian):
-    from hamlib_simulation_kernel import HamiltonianSimulation
+import hamlib_simulation_kernel
+import hamlib_utils
 
+
+def construct_hamlib_circuits(num_qubits, hamiltonian):
     circuits = {}
 
-    circuits["Method 1 K = 10"] = HamiltonianSimulation(
+    qc2, bitstring, ham_op = hamlib_simulation_kernel.HamiltonianSimulation(
         n_spins=num_qubits,
         K=10,
         t=1,
@@ -34,8 +36,9 @@ def construct_hamlib_circuits(num_qubits, hamiltonian):
         init_state="checkerboard",
         method=1,
     )
+    circuits["Method 1 K = 10"] = qc2
 
-    circuits["Method 1 K = 5"] = HamiltonianSimulation(
+    qc2, bitstring, ham_op = hamlib_simulation_kernel.HamiltonianSimulation(
         n_spins=num_qubits,
         K=5,
         t=1,
@@ -43,6 +46,8 @@ def construct_hamlib_circuits(num_qubits, hamiltonian):
         init_state="checkerboard",
         method=1,
     )
+
+    circuits["Method 1 K = 5"] = qc2
 
     circuits["Method 1 K = 10 Inverse"] = (
         circuits["Method 1 K = 10"]
@@ -58,7 +63,7 @@ def construct_hamlib_circuits(num_qubits, hamiltonian):
         .measure_all(inplace=False)
     )
 
-    circuits["Method 1 K = 10 t=1E-9"] = HamiltonianSimulation(
+    qc2, bitstring, ham_op = hamlib_simulation_kernel.HamiltonianSimulation(
         n_spins=num_qubits,
         K=10,
         t=1e-9,
@@ -67,24 +72,28 @@ def construct_hamlib_circuits(num_qubits, hamiltonian):
         method=1,
     )
 
-    circuits["Method 3 K = 5"] = HamiltonianSimulation(
+    circuits["Method 1 K = 10 t=1E-9"] = qc2
+    qc2, bitstring, ham_op = hamlib_simulation_kernel.HamiltonianSimulation(
         n_spins=num_qubits,
         K=5,
         t=1,
         hamiltonian=hamiltonian,
         init_state="checkerboard",
+        method=3,
+    )
+    circuits["Method 3 K = 5"] = qc2
+
+    qc2, bitstring, ham_op = hamlib_simulation_kernel.HamiltonianSimulation(
+        n_spins=num_qubits,
+        K=5,
+        t=1,
+        hamiltonian=hamiltonian,
+        init_state="checkerboard",
+        random_pauli_flag=True,
         method=3,
     )
 
-    circuits["Method 3 Random Pauli K = 5"] = HamiltonianSimulation(
-        n_spins=num_qubits,
-        K=5,
-        t=1,
-        hamiltonian=hamiltonian,
-        init_state="checkerboard",
-        random_pauli_flag = True,
-        method=3,
-    )
+    circuits["Method 3 Random Pauli K = 5"] = qc2
 
     return circuits
 
@@ -262,20 +271,36 @@ def calculate_fidelity(counts, correct_dist):
 
 
 if __name__ == "__main__":
-    hamiltonian = "tfim"
+    hamiltonian = "heis"
     init_state = "checkerboard"
-
-    import hamlib_simulation_kernel
-    import hamlib_utils
-
-    hamlib_simulation_kernel.filename = hamlib_utils.create_full_filenames(hamiltonian)
-    hamlib_simulation_kernel.dataset_name_template = hamlib_utils.construct_dataset_name(hamlib_simulation_kernel.filename)
-
-    min_qubits = 4
+    min_qubits = 2
     max_qubits = 12
     num_shots = 1000000
     skip_qubits = 1
-    valid_qubits = hamlib_simulation_kernel.get_valid_qubits(min_qubits, max_qubits, skip_qubits)
+
+    # get key infomation about the selected Hamiltonian
+    # DEVNOTE: Error handling here can be improved by simply returning False or raising exception
+    try:
+        hamlib_simulation_kernel.filename = hamlib_utils.create_full_filenames(
+            hamiltonian
+        )
+        hamlib_simulation_kernel.dataset_name_template = (
+            hamlib_utils.construct_dataset_name(hamlib_simulation_kernel.filename)
+        )
+    except ValueError:
+        print(f"ERROR: cannot load HamLib data for Hamiltonian: {hamiltonian}")
+        raise ValueError
+
+    if hamlib_simulation_kernel.dataset_name_template == "File key not found in data":
+        print(f"ERROR: cannot load HamLib data for Hamiltonian: {hamiltonian}")
+        raise ValueError
+    hamlib_simulation_kernel.set_default_parameter_values(
+        hamlib_simulation_kernel.filename
+    )
+
+    valid_qubits = hamlib_simulation_kernel.get_valid_qubits(
+        min_qubits, max_qubits, skip_qubits
+    )
     #
     # valid_qubits = range(2, 12)
 
@@ -311,6 +336,4 @@ if __name__ == "__main__":
             }
 
     # Save all results to a JSON file
-    save_results(experiment_data, filename="hamlib_tfim.json")
-
-    # this codew isc urrently set to generate only the hamsim, not the hamlib results.
+    save_results(experiment_data, filename=f"hamlib_{hamiltonian}.json")

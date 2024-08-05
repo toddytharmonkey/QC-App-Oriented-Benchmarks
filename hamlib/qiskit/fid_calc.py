@@ -66,9 +66,35 @@ def plot_fidelities(fidelities, plot_title):
     # method_3_average_random_paulis = np.sqrt([0.917, 0.86, 0.766, 0.693, 0.663, 0.618, 0.567, 0.506, 0.474, 0.419])
 
     # same thing as above but with 1,000,000 shots
-    method_3_average_random_paulis = np.sqrt(
-        [0.918, 0.846, 0.781, 0.72, 0.663, 0.612, 0.565, 0.52, 0.48, 0.408]
-    )
+    #
+    # TFIM
+    # method_3_average_random_paulis = np.sqrt(
+    #   [
+    #     0.926,
+    #     0.852,
+    #     0.787,
+    #     0.731,
+    #     0.666,
+    #     0.631,
+    #     0.578,
+    #     0.536,
+    #     0.495,
+    #     0.416
+    #   ],
+    # )
+    #Heisenberg 
+    method_3_average_random_paulis = np.sqrt([
+        0.782,
+        0.573,
+        0.421,
+        0.309,
+        0.229,
+        0.174,
+        0.126,
+        0.093,
+        0.066,
+        0.038
+      ])
     plt.plot(
         num_qubits,
         method_3_average_random_paulis,
@@ -87,7 +113,7 @@ def plot_fidelities(fidelities, plot_title):
 
 
 if __name__ == "__main__":
-    filename = "hamsim_tim.json"
+    filename = "hamlib_heis.json"
     data = load_results(filename)
     fidelities = analyze_results(data)
     plot_fidelities(fidelities, filename)

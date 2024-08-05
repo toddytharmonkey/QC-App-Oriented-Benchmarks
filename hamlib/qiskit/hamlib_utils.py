@@ -176,32 +176,43 @@ def determine_qubit_count(terms):
 
 def download_and_extract(filename, url):
     """
-    Download a file from a given URL and unzip it.
+    Download a file from a given URL and unzip it if it doesn't already exist.
 
     Args:
         filename (str): The name of the file to be downloaded.
         url (str): The URL to download the file from.
 
     Returns:
-        str: The path to the extracted file.
+        str: The path to the directory containing the extracted files.
     """
     download_dir = "downloaded_hamlib_files"
     os.makedirs(download_dir, exist_ok=True)
     local_zip_path = os.path.join(download_dir, os.path.basename(url))
-    
-    # Download the file
-    response = requests.get(url)
-    if response.status_code == 200:
-        with open(local_zip_path, 'wb') as file:
-            file.write(response.content)
-        # print(f"Downloaded {local_zip_path} successfully.")
-    else:
-        raise Exception(f"Failed to download from {url}.")
+    extracted_dir_path = os.path.join(download_dir, filename)
 
-    # Unzip the file
+    # Check if the file is already unzipped
+    if os.path.exists(extracted_dir_path):
+        # print(f"Directory {extracted_dir_path} already exists, skipping download and extraction.")
+        return download_dir
+
+    # Check if the zip file already exists
+    if not os.path.exists(local_zip_path):
+        # Download the file
+        # print(f"Downloading {local_zip_path}...")
+        response = requests.get(url)
+        if response.status_code == 200:
+            with open(download_dir, 'wb') as file:
+                file.write(response.content)
+            # print(f"Downloaded {local_zip_path} successfully.")
+        else:
+            raise Exception(f"Failed to download from {url}.")
+    # else:
+    #     # print(f"File {local_zip_path} already exists, skipping download.")
+    
+    # Unzip the file if it's not already unzipped
     with zipfile.ZipFile(local_zip_path, 'r') as zip_ref:
-        zip_ref.extractall(download_dir)
-        # print(f"Extracted to {download_dir}.")
+        zip_ref.extractall(extracted_dir_path)
+        print(f"Extracted to {extracted_dir_path}.")
     
     # Return the path to the directory containing the extracted files
     return download_dir
