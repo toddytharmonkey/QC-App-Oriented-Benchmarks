@@ -25,12 +25,12 @@ def analyze_results(data):
 
             if "K = 10" in experiment_name or "Method 3" in experiment_name:
                 fidelities[experiment_name].append(
-                    np.sqrt(experimental_data["fidelity"]["hf_fidelity"])
+                    np.sqrt(experimental_data["fidelity"]["fidelity"])
                 )
 
             elif "K = 5" in experiment_name:
                 fidelities[experiment_name].append(
-                    experimental_data["fidelity"]["hf_fidelity"]
+                    experimental_data["fidelity"]["fidelity"]
                 )
 
             else:
@@ -68,33 +68,18 @@ def plot_fidelities(fidelities, plot_title):
     # same thing as above but with 1,000,000 shots
     #
     # TFIM
+    # polarization fidelity
+    method_3_average_random_paulis = np.sqrt(
+        [0.901, 0.831, 0.773, 0.722, 0.661, 0.628, 0.577, 0.535, 0.494, 0.416]
+    )
+    # hellinger fidelity
     # method_3_average_random_paulis = np.sqrt(
-    #   [
-    #     0.926,
-    #     0.852,
-    #     0.787,
-    #     0.731,
-    #     0.666,
-    #     0.631,
-    #     0.578,
-    #     0.536,
-    #     0.495,
-    #     0.416
-    #   ],
+    #     [0.926, 0.852, 0.787, 0.731, 0.666, 0.631, 0.578, 0.536, 0.495, 0.416]
     # )
-    #Heisenberg 
-    method_3_average_random_paulis = np.sqrt([
-        0.782,
-        0.573,
-        0.421,
-        0.309,
-        0.229,
-        0.174,
-        0.126,
-        0.093,
-        0.066,
-        0.038
-      ])
+    # Heisenberg
+    # method_3_average_random_paulis = np.sqrt(
+    #     [0.782, 0.573, 0.421, 0.309, 0.229, 0.174, 0.126, 0.093, 0.066, 0.038]
+    # )
     plt.plot(
         num_qubits,
         method_3_average_random_paulis,
@@ -113,7 +98,7 @@ def plot_fidelities(fidelities, plot_title):
 
 
 if __name__ == "__main__":
-    filename = "hamlib_heis.json"
+    filename = "hamlib_TFIM.json"
     data = load_results(filename)
     fidelities = analyze_results(data)
     plot_fidelities(fidelities, filename)
