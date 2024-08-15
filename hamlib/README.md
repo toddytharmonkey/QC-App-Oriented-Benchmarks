@@ -154,16 +154,15 @@ Example Command
 Here’s how you can run the script with specific parameters:
 
 ```
-python hamlib_simulation_benchmark.py -n 5 -init ghz -m 3 -ranp -non
+python hamlib_simulation_benchmark.py -min 4 –max 12 -m 3 –s 1000​
 ```
 
 Explanation:
 ```
-    -n 5: Specifies the use of 5 qubits for the simulation (sets both min_qubits and max_qubits to 5).
-    -init ghz: Sets the initial state to GHZ.
-    -m 3: Applies Method 3, which involves using mirror circuits.
-    -ranp: Activates random Pauli gates in the circuit.
-    -non: Runs the simulation in a noiseless model.
+    -min 4: Use a minimum of 4 qubits.
+    -max 12: Use a maximum of 12 qubits. 
+    -m 3: Use Method 3 ​
+    -s 1000: Use 1000 shots of a single circuit​
 ```
 
 ## Classical algorithm
