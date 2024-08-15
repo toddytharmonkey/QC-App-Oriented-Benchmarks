@@ -6,8 +6,8 @@ from qiskit import transpile, QuantumCircuit
 import re
 
 # Below code created by Timothy Proctor, July 16 2024, using code developed by various members of Sandia's QPL.
-# Code has been edited to accept random pauli bitstrings by Sonny Rappaport, July 23 2024.
-# Additional functions below also by Sonny based on Tim's code. 
+# Code has been edited in various locations by Sonny Rappaport to control barrier placement and the random seed.  
+# Additional functions below are also by Sonny, based on Tim's code. 
 
 def sample_mirror_circuits(c, num_mcs=100, randomized_state_preparation=True, rand_state = None, random_pauli = True):
     if rand_state is None:
@@ -16,6 +16,7 @@ def sample_mirror_circuits(c, num_mcs=100, randomized_state_preparation=True, ra
     mirror_circuits = []
     mirror_circuits_bitstrings = []
     for j in range(num_mcs):
+        # Sonny's edit: mc is now a tuple consisting of pre-mirror, pauli layer, post-mirror. 
         mc, bs = central_pauli_mirror_circuit(c, randomized_state_preparation=randomized_state_preparation,random_pauli = True, rand_state = rand_state)
         mirror_circuits.append(mc)
         mirror_circuits_bitstrings.append(bs)
@@ -88,8 +89,8 @@ def central_pauli_mirror_circuit(circ, randomized_state_preparation=True, random
 
         quasi_inverse_circ.insert_layer_inplace(quasi_inverse_layer, i)
 
-    mc = circuit_to_mirror + pygsti.circuits.Circuit([central_pauli_layer], line_labels=circ.line_labels) + quasi_inverse_circ
-    mc.done_editing()
+    mc = circuit_to_mirror, pygsti.circuits.Circuit([central_pauli_layer], line_labels=circ.line_labels), quasi_inverse_circ
+    #mc.done_editing()
 
     bs = ''.join([str(b // 2) for b in q[n:]])
 
@@ -353,13 +354,28 @@ def convert_to_mirror_circuit(qc, random_pauli, init_state):
 
     mcs, bss = sample_mirror_circuits(pygsti_circuit, num_mcs=1, random_pauli = random_pauli, randomized_state_preparation=random_init_flag)
 
-    qasm_string = mcs[0].convert_to_openqasm()
+    overall_circuit = [] 
 
-    # use regex magic to remove lines that begin with Delay gates
-    delays_removed_string = re.sub(r'^delay.*\n?', '', qasm_string, flags=re.MULTILINE) 
+    # convert each circuit piece into openqasm: pre_mirror, pauli circuit, qausi-inverse of the pre-mirror 
+    # then, convert each qasm into qiskit, and finally put them all together with barriers put between them 
+    for index, circuit_piece in enumerate(mcs[0]): 
+        qasm_string = circuit_piece.convert_to_openqasm(block_between_layers = False)
+        # use regex magic to remove lines that begin with Delay gates
+        delays_removed_string = re.sub(r'^delay.*\n?', '', qasm_string, flags=re.MULTILINE) 
+        qiskit_circuit = QuantumCircuit.from_qasm_str(delays_removed_string).remove_final_measurements(inplace=False)
 
-    qiskit_circuit = QuantumCircuit.from_qasm_str(delays_removed_string)
+        print("index", index)
+        print(qiskit_circuit)
+
+        overall_circuit.append(qiskit_circuit)
+
+    qiskit_circuit_overall = overall_circuit[0]
+    qiskit_circuit_overall.barrier()
+    qiskit_circuit_overall.append(overall_circuit[1], qargs = qiskit_circuit_overall.qregs[0])
+    qiskit_circuit_overall.barrier()
+    qiskit_circuit_overall.append(overall_circuit[2], qargs = qiskit_circuit_overall.qregs[0])
+    qiskit_circuit_overall.measure_all()
     
     # this circuit is made out of u3 and cx gates by pygsti default
     # the bitstring is reversed to account for qiskit ordering
-    return qiskit_circuit , bss[0][::-1]
+    return qiskit_circuit_overall, bss[0][::-1]
