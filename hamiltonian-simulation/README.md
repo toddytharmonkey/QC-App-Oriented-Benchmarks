@@ -6,7 +6,9 @@ In the first strategy, we compare the quantum simulation against a classical cir
 
 In the second strategy, we compare the quantum simulation against a classical simulation of the exact Hamiltonian dynamics to report our fidelity. Again, this is not scalable.
 
-In the third strategy, we use the mirror circuits method with two different ways of implementation. The first creates an inverse of the Hamiltonian, while the second, developed by Sandia Laboratories [[2]](#references), constructs a Quasi-Hamiltonian combined with random Pauli operators. This is scalable to all qubit sizes. 
+In the third strategy, we use the mirror circuits method developed by Sandia Laboratories [[2]](#references). This technique constructs a mirror circuit, which is a base circuit followed by a reverse circuit. It produces an easy to verify correct distribution that still reflects the effectiveness of the original circuit. This is scalable to all qubit sizes. 
+
+This benchmark is a less advanced version of the Hamlib Simulation Benchmark. While it lacks the breadth of Hamiltonians as well as more advanced mirroring techniques of the Hamlib suite, it does offer the user a somewhat simplified experience.
 
 ## Problem outline
 
@@ -99,11 +101,11 @@ method 3 with random paulis and it is ran in a 0 noise model.
 
 ## Classical algorithm
 
-Much effort has been made in the field of many-body physics to understand the approximate behaviors of Hamiltonians like the ones we have here. However, to calculate the evolution of an excited state through exact diagonalization scales approximately as <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolor{white}O(2^{3n})"> for <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolor{white}n"> qubits, quite poor scaling [[2]](#references). This quickly becomes intractable even utilizing extremely powerful classical supercomputers.
+Much effort has been made in the field of many-body physics to understand the approximate behaviors of Hamiltonians like the ones we have here. However, to calculate the evolution of an excited state through exact diagonalization scales approximately as <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolor{white}O(2^{3n})"> for <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolor{white}n"> qubits, quite poor scaling [[3]](#references). This quickly becomes intractable even utilizing extremely powerful classical supercomputers.
 
 ## Quantum algorithm
 
-To run this algorithm on our quantum computer, we need to find a way to apply the unitary <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolor{white}U(t)\equiv{e}^{-i{H}t}"/> through a combination of quantum gates. In order to approximate this operator, we use Trotterization [[3]](#references), where we note that Lie product formula gives
+To run this algorithm on our quantum computer, we need to find a way to apply the unitary <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolor{white}U(t)\equiv{e}^{-i{H}t}"/> through a combination of quantum gates. In order to approximate this operator, we use Trotterization [[4]](#references), where we note that Lie product formula gives
 
 <p align="center">
 <img src="https://latex.codecogs.com/svg.latex?\pagecolor{white}e^{-i{\sum_j{H}_j}t}=\lim_{k\rightarrow\infty}\left(\prod_j{e}^{-iH_j{t}/k}\right)^k"/>.
@@ -145,7 +147,7 @@ If we take <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolo
 
 There are two options of circuit creation for this simulation:
 
-- **Default:** Optimal implementation of <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolor{white}e^{it(XX+YY+ZZ)}"/>, used as the default. See [[4]](#references) for reasoning for why this is the optimal application of gates.
+- **Default:** Optimal implementation of <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolor{white}e^{it(XX+YY+ZZ)}"/>, used as the default. See [[5]](#references) for reasoning for why this is the optimal application of gates.
 
 - **use_XX_YY_ZZ_gates:** Simple implementation of <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolor{white}e^{it(XX)}"/>, <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolor{white}e^{it(YY)}"/>, and <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolor{white}e^{it(ZZ)}"/>, provided for reference purposes and validation of the optimal implementation. In essence, we initially generate <img align=center src="https://latex.codecogs.com/svg.latex?\pagecolor{white}e^{it(ZZ)}"/> using two CNOT gates and an RZ gate. We then apply the XX and YY versions of this gate by providing a basis change from Z to X and from Z to Y, using Hadamard gates for the X transformation and using S and Hadamard gates for the Y transformation respectively. These circuits are below. It is possible to use this type of gate by passing `use_XX_YY_ZZ_gates=True` to the `run()` function.
 
@@ -184,7 +186,9 @@ There are two options of circuit creation for this simulation:
 
 The primary goal of the mirror circuit is to create a negative time evolution of hamiltonian such that the quantum state returns to its initial state. Currently, two different mirror circuit methods are applied. First one simply creates an inverse of the Hamiltonian. To create the inverse, all the quantum gates in the Hamiltonian are tracked and gates are applied such that $H^{-1} H Init= Init$ holds true for the entire circuit. Few important facts used for inverse circuit creation: $R_x(-\theta) R_x(\theta) = I$, $C_{not} C_{not} = I$, $H H = I$, etc.
 
-The other method is the Randomized Pauli method that applies a Quasi Hamiltonian $\widetilde{H}$ instead of an Inverse Hamiltonian. After the hamiltonian is applied, a layer of random pauli gates $P_{random}$ is applied, and then the $\widetilde{H}$ is applied such that the overall circuit becomes a Resultant Pauli Operator $P_{resultant}$ applied over the initial state $Init$, i.e. $\widetilde{H} P_{random} H Init = P_{resultant} Init$.
+The other method is a pauli method that applies a Quasi Hamiltonian $\widetilde{H}$ instead of an Inverse Hamiltonian. After the hamiltonian is applied, a layer of pauli gates $P_{random}$ is applied, and then the $\widetilde{H}$ is applied such that the overall circuit becomes a Resultant Pauli Operator $P_{resultant}$ applied over the initial state $Init$, i.e. $\widetilde{H} P_{random} H Init = P_{resultant} Init$.
+
+Note that this pauli method acts as a prototype to the random pauli method available in the Hamlib benchmark. It does not offer truly random paulis or the option to average over them, unlike in the Hamlib benchmark. It is primarily meant to offer some compiler resistance. 
 
 
 ## References
@@ -193,21 +197,17 @@ The other method is the Randomized Pauli method that applies a Quasi Hamiltonian
 
 [2] Proctor, T., Rudinger, K., Young, K. et al. Measuring the capabilities of quantum computers. Nat. Phys. 18, 75–79 (2022). https://doi.org/10.1038/s41567-021-01409-7 
 
-[2] Andrew M. Childs, Dmitri Maslov, Yunseong Nam, Neil J. Ross, Yuan Su. (2017).
+[3] Andrew M. Childs, Dmitri Maslov, Yunseong Nam, Neil J. Ross, Yuan Su. (2017).
     Toward the first quantum simulation with quantum speedup.
     [`arXiv:1711.10980`](https://arxiv.org/pdf/1711.10980.pdf)
 
-[3] Naomichi Hatano, Masuo Suzuki. (2005).
+[4] Naomichi Hatano, Masuo Suzuki. (2005).
     Finding Exponential Product Formulas of Higher Orders
     [`arXiv:math-ph/0506007`](https://arxiv.org/abs/math-ph/0506007v1)
 
-[4] Farrokh Vatan, Colin Williams. (2004).
+[5] Farrokh Vatan, Colin Williams. (2004).
     Optimal Quantum Circuits for General Two-Qubit Gates.
     [`arXiv:quant-ph/0308006`](https://arxiv.org/abs/quant-ph/0308006)
-
-[5] D. Zhu, S. Johri, N. H. Nguyen, C. Huerta Alderete, K. A. Landsman, N. M. Linke, C. Monroe, A. Y. Matsuura. (2021).
-    Probing many-body localization on a noisy quantum computer.
-    [`arXiv:2006.12355`](https://arxiv.org/abs/2006.12355)
 
 [//]: # (Below are some thoughts that went into the choice of the type of Hamiltonian simulation to be used for this benchmark.)
 

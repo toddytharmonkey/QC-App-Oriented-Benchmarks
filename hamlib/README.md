@@ -34,7 +34,7 @@ $$
 
 where $\langle i, j \rangle$ denotes adjacent lattice sites $i$ and $j$, $\sigma$ represents the fermion spin, $c$ and $c^\dagger$ are the fermionic annihilation and creation operators, respectively, and $n_{j,\sigma} = c_{j,\sigma}^\dagger c_{j,\sigma}$ is the number operator. The first term of the Hamiltonian describes the tunneling of fermions between adjacent sites with amplitude $t$, representing the noninteracting dynamics, while the second term captures the on-site fermion interaction with strength $U$.
 
-For our benchmarks, we only use the 1D Fermi-Hubbard model but allow varying $U$ and $t$.
+For our benchmarks, we only use the 1D Fermi-Hubbard model but allow varying $U$, the periodic boundary conditions, and 3 different encodings: Bravyi-Kitaev ($bk$), Jordan-Wigner ($jw$), and parity encodings ($parity$). $t$ is assumed to be 1. 
 
 ### Bose-Hubbard Model
 
@@ -46,6 +46,8 @@ $$
 
 where $b_i^\dagger$ and $b_i$ denote the creation and annihilation operators respectively, $n_i = b_i^\dagger b_i$ represents the number operator at site $i$, $t$ is the tunneling strength (assumed to be $t = 1$ in this dataset), and $U$ is the interaction energy per site.
 
+For our benchmarks, we only use the 1D Bose-Hubbard model but allow varying $U$, the periodic boundary conditions, and 2 different encodings: gray and standard binary ($stdbinary$). $t$ is assumed to be 1. 
+
 ### Heisenberg Model
 
 We implement the following Hamiltonian for the quantum Heisenberg model:
@@ -55,6 +57,8 @@ H_{\text{Heis}} = \sum_{i=1}^{N} (\vec{\sigma}_i \cdot \vec{\sigma}\_{i+1} + h Z
 $$
 
 where $\vec{\sigma}_i = (X_i, Y_i, Z_i)$. This Hamiltonian, known as the Heisenberg XXX model, incorporates an external magnetic field represented by $h$, where $h$ modulates the strength of the magnetic field interaction along the Z-axis of each spin.
+
+For our benchmarks, we only use the 1D Heisenberg model but allow varying $h$ and the periodic boundary conditions.
 
 ### Transverse Field Ising Model (TFIM)
 
@@ -66,6 +70,8 @@ $$
 
 where the summation extends over each edge $\langle i, j \rangle$ within the lattice.
 
+For our benchmarks, we only use the 1D TFIM model but allow varying $h$ and the periodic boundary conditions.
+
 ### Max3Sat Problem
 
 To represent a 3-SAT problem in quantum computing, one constructs a Hamiltonian by summing terms involving three variables. If no negations are included, the Hamiltonian for a clause $(x_i \lor x_j \lor x_k)$ is represented as:
@@ -75,6 +81,8 @@ x_i \lor x_j \lor x_k = I - \frac{1}{8} (I + Z_i)(I + Z_j)(I + Z_k),
 $$
 
 where $I$ is the identity matrix and $Z$ denotes the Pauli-Z operator, reflecting the influence of each variable in the clause.
+
+We use random Max3Sat problems with several clause ratios, $r = \frac{m}{n}$, where $m$ is the number of clauses and $n$ is the number of variables.
 
 ## Benchmarking
 The Hamlib Simulation algorithm is benchmarked, in most cases, by running **just a single circuit (see Mirror Method Circuit Section for the exception.**) This circuit is repeated a number of times denoted by `num_shots`. We then run the algorithm circuit for numbers of qubits between `min_qubits` and `max_qubits`, inclusive. The test returns the averages of the circuit creation times, average execution times, fidelities, and circuit depths, like all of the other algorithms. 
